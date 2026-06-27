@@ -55,7 +55,7 @@
             <span class="text-muted fs-5">— {{ equipe_detalhe.nome }}</span>
             {% endif %}
         </h2>
-        <p class="text-muted small mb-0">{{ hoje.strftime('%A, %d de %B de %Y') }}</p>
+        <p class="text-muted small mb-0">{{ hoje | data_br }}</p>
     </div>
 
     <div class="d-flex gap-2 flex-wrap align-items-center">
@@ -128,13 +128,16 @@
 {% if tem_alerta %}
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-header bg-danger bg-opacity-10 border-0 d-flex justify-content-between align-items-center">
-        <h6 class="mb-0 fw-bold text-danger-emphasis">
-            ⚠ Alertas de férias
-        </h6>
-        <button class="btn btn-sm btn-link text-muted p-0"
-                data-bs-toggle="collapse" data-bs-target="#alertas-body">
-            recolher
-        </button>
+        <h6 class="mb-0 fw-bold text-danger-emphasis">⚠ Alertas de férias</h6>
+        <div class="d-flex gap-3 align-items-center">
+            <a href="{{ url_for('ferias.historico') }}" class="small text-muted text-decoration-none">
+                Ver todas →
+            </a>
+            <button class="btn btn-sm btn-link text-muted p-0"
+                    data-bs-toggle="collapse" data-bs-target="#alertas-body">
+                recolher
+            </button>
+        </div>
     </div>
     <div id="alertas-body" class="collapse show">
         <div class="card-body pt-2">
@@ -286,12 +289,15 @@
     <div class="col-lg-6">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-header bg-white border-0 pt-3 pb-0">
+                <div class="d-flex justify-content-between align-items-center w-100">
                 <h6 class="fw-bold mb-0">
                     Férias pendentes
                     {% if pendentes_ferias %}
                     <span class="badge bg-warning text-dark ms-1">{{ pendentes_ferias|length }}</span>
                     {% endif %}
                 </h6>
+                <a href="{{ url_for('ferias.index') }}" class="small text-muted text-decoration-none">Ver todas →</a>
+            </div>
             </div>
             <div class="card-body p-0">
                 {% if not pendentes_ferias %}
@@ -338,12 +344,15 @@
     <div class="col-lg-6">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-header bg-white border-0 pt-3 pb-0">
+                <div class="d-flex justify-content-between align-items-center w-100">
                 <h6 class="fw-bold mb-0">
                     Day offs pendentes
                     {% if pendentes_dayoff %}
                     <span class="badge bg-warning text-dark ms-1">{{ pendentes_dayoff|length }}</span>
                     {% endif %}
                 </h6>
+                <a href="{{ url_for('dayoff.index') }}" class="small text-muted text-decoration-none">Ver todas →</a>
+            </div>
             </div>
             <div class="card-body p-0">
                 {% if not pendentes_dayoff %}

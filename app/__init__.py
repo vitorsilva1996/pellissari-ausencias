@@ -63,6 +63,30 @@ def create_app(config_name=None):
     app.register_blueprint(painel_blueprint, url_prefix='/painel')
     app.register_blueprint(notif_blueprint, url_prefix='/notificacoes')
 
+    # ── Filtro de data em português ──────────────────────────────────────────
+    _MESES_BR = [
+        '', 'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+        'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
+    ]
+
+    @app.template_filter('data_br')
+    def data_br_filter(d):
+        if d is None:
+            return ''
+        return f'{d.day} de {_MESES_BR[d.month]} de {d.year}'
+
+    # ── Context processor: notificações não lidas ─────────────────────────────
+    @app.context_processor
+    def injetar_notificacoes():
+        from flask_login import current_user
+        from app.models import Notificacao
+        count = 0
+        if current_user.is_authenticated:
+            count = Notificacao.query.filter_by(
+                colaborador_id=current_user.id, lida=0
+            ).count()
+        return {'notificacoes_nao_lidas': count}
+
     @app.route('/')
     def index():
         return render_template('index.html')

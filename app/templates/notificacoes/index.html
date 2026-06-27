@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+
+{% block title %}Notificações{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold mb-0">Notificações</h2>
+        {% if nao_lidas %}
+        <p class="text-muted small mb-0">{{ nao_lidas|length }} não lida(s)</p>
+        {% else %}
+        <p class="text-muted small mb-0">Tudo em dia</p>
+        {% endif %}
+    </div>
+    {% if nao_lidas %}
+    <form method="POST" action="{{ url_for('notificacoes.marcar_todas_lidas') }}">
+        <button type="submit" class="btn btn-outline-secondary btn-sm">
+            Marcar todas como lidas
+        </button>
+    </form>
+    {% endif %}
+</div>
+
+{# ── Não lidas ── #}
+{% if nao_lidas %}
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white border-bottom pt-3 pb-2">
+        <h6 class="fw-bold mb-0 text-primary">
+            Não lidas
+            <span class="badge bg-primary ms-1">{{ nao_lidas|length }}</span>
+        </h6>
+    </div>
+    <div class="list-group list-group-flush">
+        {% for n in nao_lidas %}
+        <div class="list-group-item list-group-item-action px-4 py-3 bg-primary bg-opacity-10 border-start border-4 border-primary">
+            <div class="d-flex justify-content-between align-items-start gap-3">
+                <div class="d-flex gap-3 align-items-start flex-grow-1">
+                    <span class="fs-5 flex-shrink-0">{{ icones.get(n.tipo, '🔔') }}</span>
+                    <div>
+                        <div class="fw-semibold small">{{ labels.get(n.tipo, n.tipo) }}</div>
+                        <div class="text-muted small mt-1">{{ n.mensagem }}</div>
+                        <div class="text-muted" style="font-size:.7rem;margin-top:4px">
+                            {{ n.criado_em | data_br }}
+                        </div>
+                    </div>
+                </div>
+                <form method="POST"
+                      action="{{ url_for('notificacoes.marcar_lida', id=n.id) }}"
+                      class="flex-shrink-0">
+                    <button type="submit"
+                            class="btn btn-xs btn-outline-secondary"
+                            style="font-size:.7rem;padding:2px 8px;white-space:nowrap"
+                            title="Marcar como lida">
+                        ✓ Lida
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{# ── Lidas ── #}
+{% if lidas %}
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-bottom pt-3 pb-2 d-flex justify-content-between align-items-center">
+        <h6 class="fw-bold mb-0 text-muted">Lidas</h6>
+        <button class="btn btn-xs btn-link text-muted p-0 small"
+                data-bs-toggle="collapse" data-bs-target="#lidas-list">
+            mostrar/ocultar
+        </button>
+    </div>
+    <div id="lidas-list" class="collapse {% if not nao_lidas %}show{% endif %}">
+        <div class="list-group list-group-flush">
+            {% for n in lidas %}
+            <div class="list-group-item px-4 py-3">
+                <div class="d-flex gap-3 align-items-start">
+                    <span class="fs-5 flex-shrink-0 opacity-50">{{ icones.get(n.tipo, '🔔') }}</span>
+                    <div>
+                        <div class="small text-muted fw-semibold">{{ labels.get(n.tipo, n.tipo) }}</div>
+                        <div class="text-muted small mt-1">{{ n.mensagem }}</div>
+                        <div class="text-muted" style="font-size:.7rem;margin-top:4px">
+                            {{ n.criado_em | data_br }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if not nao_lidas and not lidas %}
+<div class="text-center py-5">
+    <div class="fs-1 mb-3">🔔</div>
+    <p class="text-muted">Nenhuma notificação por enquanto.</p>
+</div>
+{% endif %}
+
+{% endblock %}

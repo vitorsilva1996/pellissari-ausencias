@@ -160,7 +160,8 @@ def perfil(id):
     )
     return render_template('colaboradores/perfil.html',
                            colab=colab, periodos=periodos,
-                           ferias_lista=ferias_lista, dayoffs_lista=dayoffs_lista)
+                           ferias_lista=ferias_lista, dayoffs_lista=dayoffs_lista,
+                           today=date.today(), relativedelta=relativedelta)
 
 
 # ── Edição ────────────────────────────────────────────────────────────────────
@@ -291,7 +292,9 @@ def periodos(id):
         .all()
     )
     return render_template('colaboradores/periodos.html',
-                           colab=colab, periodos=lista, form={})
+                           colab=colab, periodos=lista, form={},
+                           sugestao_inicio=None, sugestao_fim=None, sugestao_limite=None,
+                           today=date.today())
 
 
 @colaboradores.route('/<int:id>/periodos/novo', methods=['GET', 'POST'])
@@ -372,7 +375,8 @@ def periodo_novo(id):
                                    form=request.form,
                                    sugestao_inicio=sugestao_inicio,
                                    sugestao_fim=sugestao_fim,
-                                   sugestao_limite=sugestao_limite)
+                                   sugestao_limite=sugestao_limite,
+                                   today=date.today())
 
         p = PeriodoAquisitivo(
             colaborador_id=id,
@@ -396,4 +400,5 @@ def periodo_novo(id):
                            colab=colab, periodos=lista, form={},
                            sugestao_inicio=sugestao_inicio,
                            sugestao_fim=sugestao_fim,
-                           sugestao_limite=sugestao_limite)
+                           sugestao_limite=sugestao_limite,
+                           today=date.today())
