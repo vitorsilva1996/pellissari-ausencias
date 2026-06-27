@@ -1,0 +1,62 @@
+# Variáveis de ambiente (NUNCA versionar)
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+*.so
+
+# Ambientes virtuais
+venv/
+.venv/
+env/
+ENV/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Pytest / cobertura
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Logs
+*.log
+app_logs/
+
+# Docker
+mysql_data/
+
+# Migrações geradas (manter o diretório, ignorar versões geradas automaticamente)
+# migrations/versions/  # descomente se preferir não versionar as migrations
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Claude Code
+.claude/
+
+# Uploads e arquivos temporários
+uploads/
+tmp/

@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      db:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: pellissari_ausencias_test
+          MYSQL_USER: pellissari
+          MYSQL_PASSWORD: testpassword
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -u root -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      FLASK_ENV: development
+      FLASK_SECRET_KEY: chave-de-teste-ci
+      DATABASE_URL: mysql+pymysql://pellissari:testpassword@127.0.0.1:3306/pellissari_ausencias_test
+      MAIL_SERVER: localhost
+      MAIL_PORT: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pytest flake8
+
+      - name: Lint (flake8)
+        run: flake8 app/ config.py run.py --max-line-length=120
+
+      - name: Run tests
+        run: pytest tests/ -v

@@ -1,0 +1,76 @@
+services:
+  app:
+    build: .
+    container_name: pellissari_app
+    restart: always
+    expose:
+      - "5000"
+    env_file:
+      - .env
+    environment:
+      FLASK_ENV: production
+    volumes:
+      - app_logs:/app/logs
+    command: >
+      gunicorn
+        --workers 4
+        --bind 0.0.0.0:5000
+        --timeout 120
+        --access-logfile /app/logs/access.log
+        --error-logfile /app/logs/error.log
+        "run:app"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - pellissari_net
+
+  db:
+    image: mysql:8.0
+    container_name: pellissari_db
+    restart: always
+    env_file:
+      - .env
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pellissari_net
+
+  nginx:
+    image: nginx:alpine
+    container_name: pellissari_nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - app_logs:/var/log/nginx
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - pellissari_net
+
+volumes:
+  mysql_data:
+  app_logs:
+
+networks:
+  pellissari_net:
+    driver: bridge
