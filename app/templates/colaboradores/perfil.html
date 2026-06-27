@@ -1,0 +1,231 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ colab.nome }}{% endblock %}
+
+{% macro badge_ferias(status) %}
+  {% if status == 'aguardando_gestor' %}<span class="badge bg-warning text-dark">Ag. gestor</span>
+  {% elif status == 'aguardando_rh' %}<span class="badge bg-info text-dark">Ag. RH</span>
+  {% elif status == 'aprovada' %}<span class="badge bg-success">Aprovada</span>
+  {% elif status == 'reprovada' %}<span class="badge bg-danger">Reprovada</span>
+  {% elif status == 'cancelada' %}<span class="badge bg-secondary">Cancelada</span>{% endif %}
+{% endmacro %}
+
+{% macro badge_dayoff(status) %}
+  {% if status == 'aguardando_gestor' %}<span class="badge bg-warning text-dark">Ag. gestor</span>
+  {% elif status == 'aprovado' %}<span class="badge bg-success">Aprovado</span>
+  {% elif status == 'reprovado' %}<span class="badge bg-danger">Reprovado</span>
+  {% elif status == 'cancelado' %}<span class="badge bg-secondary">Cancelado</span>{% endif %}
+{% endmacro %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-2 mb-4">
+    {% if current_user.perfil in ('rh', 'diretoria') %}
+    <a href="{{ url_for('colaboradores.index') }}" class="text-muted text-decoration-none">← Colaboradores</a>
+    <span class="text-muted">/</span>
+    {% endif %}
+    <span class="fw-semibold">{{ colab.nome }}</span>
+    {% if not colab.ativo %}
+    <span class="badge bg-secondary ms-1">Inativo</span>
+    {% endif %}
+</div>
+
+<div class="row g-4">
+
+    {# ── Dados do colaborador ── #}
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <h5 class="fw-bold mb-0">{{ colab.nome }}</h5>
+                        <span class="text-muted small">{{ colab.funcao }}</span>
+                    </div>
+                    <span class="badge
+                        {% if colab.perfil == 'rh' %}bg-purple
+                        {% elif colab.perfil == 'diretoria' %}bg-dark
+                        {% elif colab.perfil == 'gestor' %}bg-info text-dark
+                        {% else %}bg-secondary{% endif %}"
+                        style="{% if colab.perfil == 'rh' %}background:#6f42c1{% endif %}">
+                        {{ colab.perfil | capitalize }}
+                    </span>
+                </div>
+                <dl class="row mb-0 small">
+                    <dt class="col-5 text-muted">E-mail</dt>
+                    <dd class="col-7">{{ colab.email }}</dd>
+
+                    <dt class="col-5 text-muted">Equipe</dt>
+                    <dd class="col-7">{{ colab.equipe.nome }}</dd>
+
+                    <dt class="col-5 text-muted">Gestor</dt>
+                    <dd class="col-7">{{ colab.gestor.nome if colab.gestor else '—' }}</dd>
+
+                    <dt class="col-5 text-muted">Admissão</dt>
+                    <dd class="col-7">{{ colab.data_admissao.strftime('%d/%m/%Y') }}</dd>
+
+                    <dt class="col-5 text-muted">Day off</dt>
+                    <dd class="col-7">
+                        {% if colab.pode_solicitar_dayoff() %}
+                        <span class="text-success">Elegível</span>
+                        {% else %}
+                        <span class="text-muted">Disponível em {{ (colab.data_admissao + relativedelta(years=1)).strftime('%d/%m/%Y') }}</span>
+                        {% endif %}
+                    </dd>
+                </dl>
+            </div>
+        </div>
+
+        {% if current_user.perfil in ('rh', 'diretoria') %}
+        <div class="d-grid gap-2">
+            <a href="{{ url_for('colaboradores.editar', id=colab.id) }}"
+               class="btn btn-outline-primary btn-sm">Editar dados</a>
+            <a href="{{ url_for('colaboradores.periodos', id=colab.id) }}"
+               class="btn btn-outline-secondary btn-sm">Gerenciar períodos aquisitivos</a>
+            <form method="POST" action="{{ url_for('colaboradores.reset_senha', id=colab.id) }}"
+                  onsubmit="return confirm('Gerar nova senha temporária para {{ colab.nome }}?')">
+                <button type="submit" class="btn btn-outline-warning btn-sm w-100">Resetar senha</button>
+            </form>
+            {% if colab.ativo %}
+            <form method="POST" action="{{ url_for('colaboradores.desativar', id=colab.id) }}"
+                  onsubmit="return confirm('Desativar {{ colab.nome }}? O histórico será preservado.')">
+                <button type="submit" class="btn btn-outline-danger btn-sm w-100">Desativar colaborador</button>
+            </form>
+            {% else %}
+            <form method="POST" action="{{ url_for('colaboradores.reativar', id=colab.id) }}">
+                <button type="submit" class="btn btn-outline-success btn-sm w-100">Reativar colaborador</button>
+            </form>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    {# ── Histórico ── #}
+    <div class="col-lg-8">
+
+        {# Períodos aquisitivos #}
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-white border-0 pt-3 pb-0 d-flex justify-content-between">
+                <h6 class="fw-bold mb-0">Períodos aquisitivos</h6>
+                {% if current_user.perfil in ('rh', 'diretoria') %}
+                <a href="{{ url_for('colaboradores.periodos', id=colab.id) }}"
+                   class="btn btn-xs btn-outline-secondary btn-sm" style="font-size:.75rem;padding:2px 8px">
+                   Gerenciar
+                </a>
+                {% endif %}
+            </div>
+            <div class="card-body p-0">
+                {% if not periodos %}
+                <p class="text-muted small p-3 mb-0">Nenhum período cadastrado.</p>
+                {% else %}
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Início</th>
+                                <th>Fim</th>
+                                <th class="text-center">Direito</th>
+                                <th class="text-center">Usados</th>
+                                <th class="text-center">Restantes</th>
+                                <th>Limite saída</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in periodos %}
+                            {% set restantes = p.dias_restantes() %}
+                            <tr>
+                                <td class="small">{{ p.data_inicio.strftime('%d/%m/%Y') }}</td>
+                                <td class="small">{{ p.data_fim.strftime('%d/%m/%Y') }}</td>
+                                <td class="text-center small">{{ p.dias_direito }}</td>
+                                <td class="text-center small">{{ p.dias_usados() }}</td>
+                                <td class="text-center fw-semibold small
+                                    {% if restantes == 0 %}text-success
+                                    {% elif p.data_limite_saida < today %}text-danger
+                                    {% endif %}">
+                                    {{ restantes }}
+                                </td>
+                                <td class="small {% if p.data_limite_saida < today and restantes > 0 %}text-danger fw-semibold{% endif %}">
+                                    {{ p.data_limite_saida.strftime('%d/%m/%Y') }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {# Férias #}
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-white border-0 pt-3 pb-0">
+                <h6 class="fw-bold mb-0">Histórico de férias</h6>
+            </div>
+            <div class="card-body p-0">
+                {% if not ferias_lista %}
+                <p class="text-muted small p-3 mb-0">Nenhuma solicitação de férias.</p>
+                {% else %}
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Início</th>
+                                <th class="text-center">Dias</th>
+                                <th>Retorno</th>
+                                <th>Status</th>
+                                <th>Solicitado em</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for f in ferias_lista %}
+                            <tr>
+                                <td class="small">{{ f.data_inicio.strftime('%d/%m/%Y') }}</td>
+                                <td class="text-center small">{{ f.dias }}</td>
+                                <td class="small">{{ f.data_retorno.strftime('%d/%m/%Y') }}</td>
+                                <td>{{ badge_ferias(f.status) }}</td>
+                                <td class="small text-muted">{{ f.solicitado_em.strftime('%d/%m/%Y') }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {# Day Offs #}
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 pt-3 pb-0">
+                <h6 class="fw-bold mb-0">Histórico de day offs</h6>
+            </div>
+            <div class="card-body p-0">
+                {% if not dayoffs_lista %}
+                <p class="text-muted small p-3 mb-0">Nenhum day off solicitado.</p>
+                {% else %}
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Data</th>
+                                <th>Mês ref.</th>
+                                <th>Status</th>
+                                <th>Comentário</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for d in dayoffs_lista %}
+                            <tr>
+                                <td class="small">{{ d.data_solicitada.strftime('%d/%m/%Y') }}</td>
+                                <td class="small text-muted">{{ d.mes_referencia.strftime('%m/%Y') }}</td>
+                                <td>{{ badge_dayoff(d.status) }}</td>
+                                <td class="small text-muted">{{ d.comentario_gestor or '—' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

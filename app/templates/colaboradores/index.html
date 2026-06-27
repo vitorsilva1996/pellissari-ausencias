@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+
+{% block title %}Colaboradores{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold mb-0">Colaboradores</h2>
+        <p class="text-muted small mb-0">{{ lista|length }} registro(s)
+            {% if mostrar_inativos %} — incluindo inativos{% endif %}
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('colaboradores.index', inativos='0' if mostrar_inativos else '1') }}"
+           class="btn btn-outline-secondary btn-sm">
+            {% if mostrar_inativos %}Ocultar inativos{% else %}Mostrar inativos{% endif %}
+        </a>
+        <a href="{{ url_for('colaboradores.novo') }}" class="btn btn-primary btn-sm">+ Novo colaborador</a>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Nome</th>
+                    <th>E-mail</th>
+                    <th>Equipe</th>
+                    <th>Função</th>
+                    <th>Admissão</th>
+                    <th>Perfil</th>
+                    <th class="text-center">Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in lista %}
+                <tr class="{% if not c.ativo %}table-secondary text-muted{% endif %}">
+                    <td class="fw-semibold">{{ c.nome }}</td>
+                    <td class="small">{{ c.email }}</td>
+                    <td class="small">{{ c.equipe.nome }}</td>
+                    <td class="small">{{ c.funcao }}</td>
+                    <td class="small">{{ c.data_admissao.strftime('%d/%m/%Y') }}</td>
+                    <td>
+                        <span class="badge
+                            {% if c.perfil == 'rh' %}bg-purple
+                            {% elif c.perfil == 'diretoria' %}bg-dark
+                            {% elif c.perfil == 'gestor' %}bg-info text-dark
+                            {% else %}bg-secondary{% endif %}"
+                            style="{% if c.perfil == 'rh' %}background:#6f42c1{% endif %}">
+                            {{ c.perfil | capitalize }}
+                        </span>
+                    </td>
+                    <td class="text-center">
+                        {% if c.ativo %}
+                        <span class="badge bg-success">Ativo</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Inativo</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        <div class="d-flex gap-1 justify-content-end">
+                            <a href="{{ url_for('colaboradores.perfil', id=c.id) }}"
+                               class="btn btn-sm btn-outline-secondary">Ver</a>
+                            <a href="{{ url_for('colaboradores.editar', id=c.id) }}"
+                               class="btn btn-sm btn-outline-primary">Editar</a>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-4">Nenhum colaborador encontrado.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
