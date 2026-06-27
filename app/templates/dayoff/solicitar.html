@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block title %}Solicitar Day Off{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-lg-6">
+
+<div class="d-flex align-items-center gap-2 mb-4">
+    <a href="{{ url_for('dayoff.index') }}" class="text-muted text-decoration-none">← Day Off</a>
+    <span class="text-muted">/</span>
+    <span class="fw-semibold">Solicitar</span>
+</div>
+
+{% if not elegivel %}
+{# ── Inelegível ── #}
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-4 text-center">
+        <div class="fs-1 mb-3">⏳</div>
+        <h5 class="fw-bold">Benefício ainda não disponível</h5>
+        <p class="text-muted mb-1">
+            O day off é um benefício concedido após <strong>1 ano de empresa</strong>.
+        </p>
+        <p class="mb-4">
+            Você será elegível a partir de
+            <strong class="text-primary">{{ data_elegibilidade.strftime('%d/%m/%Y') }}</strong>.
+        </p>
+        <a href="{{ url_for('dayoff.index') }}" class="btn btn-outline-secondary btn-sm">
+            Voltar
+        </a>
+    </div>
+</div>
+
+{% elif saldo == 0 %}
+{# ── Sem saldo ── #}
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-4 text-center">
+        <div class="fs-1 mb-3">📅</div>
+        <h5 class="fw-bold">Day off do mês já utilizado</h5>
+        <p class="text-muted mb-4">
+            Você já solicitou o day off deste mês. O benefício é de
+            <strong>1 por mês</strong> e não acumula para o mês seguinte.
+        </p>
+        <a href="{{ url_for('dayoff.index') }}" class="btn btn-outline-secondary btn-sm">
+            Ver meus day offs
+        </a>
+    </div>
+</div>
+
+{% else %}
+{# ── Formulário ── #}
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-4">
+        <h5 class="fw-bold mb-1">Solicitar day off</h5>
+        <p class="text-muted small mb-4">
+            Você tem <strong>{{ saldo }} day off</strong> disponível neste mês.
+            A data deve ser dentro do mês atual e futura.
+        </p>
+
+        <form method="POST" action="{{ url_for('dayoff.solicitar') }}" novalidate>
+
+            <div class="mb-4">
+                <label class="form-label fw-semibold" for="data_solicitada">
+                    Data desejada
+                </label>
+                <input type="date"
+                       class="form-control"
+                       id="data_solicitada"
+                       name="data_solicitada"
+                       min="{{ data_min }}"
+                       max="{{ data_max }}"
+                       value="{{ request.form.get('data_solicitada', '') }}"
+                       required>
+                <div class="form-text">
+                    Apenas datas futuras dentro de
+                    <strong>{{ hoje.strftime('%B de %Y') }}</strong>.
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 mt-4">
+                <button type="submit" class="btn btn-primary">Enviar solicitação</button>
+                <a href="{{ url_for('dayoff.index') }}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+</div>
+</div>
+{% endblock %}

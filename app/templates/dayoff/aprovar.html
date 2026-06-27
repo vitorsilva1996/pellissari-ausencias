@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+
+{% block title %}Analisar Day Off{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-lg-6">
+
+<div class="d-flex align-items-center gap-2 mb-4">
+    <a href="{{ url_for('dayoff.index') }}" class="text-muted text-decoration-none">← Day Off</a>
+    <span class="text-muted">/</span>
+    <span class="fw-semibold">Analisar solicitação</span>
+</div>
+
+{# ── Alerta de conflito ── #}
+{% if conflitos %}
+<div class="alert alert-warning d-flex gap-2 align-items-start mb-4">
+    <span class="fs-5">⚠️</span>
+    <div>
+        <strong>Conflito na equipe.</strong>
+        Os seguintes colegas também têm day off neste dia:
+        <ul class="mb-0 mt-1">
+            {% for c in conflitos %}
+            <li>{{ c.nome }} — {{ c.funcao }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endif %}
+
+{# ── Dados da solicitação ── #}
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white border-bottom pt-3 pb-2">
+        <h6 class="fw-bold mb-0">Dados da solicitação</h6>
+    </div>
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-4">Colaborador</dt>
+            <dd class="col-sm-8">{{ d.colaborador.nome }}</dd>
+
+            <dt class="col-sm-4">Equipe</dt>
+            <dd class="col-sm-8">{{ d.colaborador.equipe.nome }}</dd>
+
+            <dt class="col-sm-4">Função</dt>
+            <dd class="col-sm-8">{{ d.colaborador.funcao }}</dd>
+
+            <dt class="col-sm-4">Data solicitada</dt>
+            <dd class="col-sm-8">{{ d.data_solicitada.strftime('%d/%m/%Y') }}
+                ({{ d.data_solicitada.strftime('%A') }})</dd>
+
+            <dt class="col-sm-4">Mês de referência</dt>
+            <dd class="col-sm-8">{{ d.mes_referencia.strftime('%B/%Y') }}</dd>
+
+            <dt class="col-sm-4">Solicitado em</dt>
+            <dd class="col-sm-8">{{ d.solicitado_em.strftime('%d/%m/%Y %H:%M') }}</dd>
+        </dl>
+    </div>
+</div>
+
+{# ── Formulário de decisão ── #}
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-bottom pt-3 pb-2">
+        <h6 class="fw-bold mb-0">Sua decisão</h6>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('dayoff.aprovar', id=d.id) }}" novalidate>
+
+            <div class="mb-4">
+                <label class="form-label fw-semibold" for="comentario">
+                    Comentário <span class="text-muted fw-normal">(opcional)</span>
+                </label>
+                <textarea class="form-control" id="comentario" name="comentario"
+                          rows="3" maxlength="500"
+                          placeholder="Justificativa ou observação..."></textarea>
+            </div>
+
+            <div class="d-flex gap-2 flex-wrap">
+                <button type="submit" name="acao" value="aprovar"
+                        class="btn btn-success"
+                        onclick="return confirm('Confirma a APROVAÇÃO do day off?')">
+                    Aprovar
+                </button>
+                <button type="submit" name="acao" value="reprovar"
+                        class="btn btn-danger"
+                        onclick="return confirm('Confirma a REPROVAÇÃO do day off?')">
+                    Reprovar
+                </button>
+                <a href="{{ url_for('dayoff.index') }}" class="btn btn-outline-secondary">
+                    Voltar
+                </a>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+</div>
+</div>
+{% endblock %}

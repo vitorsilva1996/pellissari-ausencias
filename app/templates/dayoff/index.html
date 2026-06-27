@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+
+{% block title %}Day Off{% endblock %}
+
+{% macro badge_status(status) %}
+  {% if status == 'aguardando_gestor' %}
+    <span class="badge bg-warning text-dark">Aguardando gestor</span>
+  {% elif status == 'aprovado' %}
+    <span class="badge bg-success">Aprovado</span>
+  {% elif status == 'reprovado' %}
+    <span class="badge bg-danger">Reprovado</span>
+  {% elif status == 'cancelado' %}
+    <span class="badge bg-secondary">Cancelado</span>
+  {% endif %}
+{% endmacro %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold mb-0">Day Off</h2>
+    {% if data_elegibilidade %}
+    <span class="badge bg-secondary fs-6 fw-normal">
+        Disponível a partir de {{ data_elegibilidade.strftime('%d/%m/%Y') }}
+    </span>
+    {% else %}
+    <a href="{{ url_for('dayoff.solicitar') }}" class="btn btn-primary btn-sm">+ Solicitar day off</a>
+    {% endif %}
+</div>
+
+{# ── Saldo do mês ── #}
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small mb-1">Saldo — {{ mes_atual.strftime('%B/%Y') }}</div>
+                <div class="display-6 fw-bold {% if saldo > 0 %}text-success{% else %}text-secondary{% endif %}">
+                    {{ saldo }}
+                </div>
+                <div class="text-muted small mt-1">
+                    {% if saldo > 0 %}
+                    1 day off disponível neste mês
+                    {% else %}
+                    Day off do mês já utilizado
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small mb-1">Utilizados este mês</div>
+                <div class="display-6 fw-bold text-dark">{{ usado }}</div>
+                <div class="text-muted small mt-1">Máximo: 1 por mês · Não acumula</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ── Inelegível ── #}
+{% if data_elegibilidade %}
+<div class="alert alert-info mb-4">
+    <strong>Benefício ainda não disponível.</strong>
+    O day off é liberado após 1 ano de empresa.
+    Você será elegível a partir de <strong>{{ data_elegibilidade.strftime('%d/%m/%Y') }}</strong>.
+</div>
+{% endif %}
+
+{# ── Pendentes para aprovação (gestor / RH) ── #}
+{% if pendentes %}
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-warning bg-opacity-10 border-0">
+        <h6 class="mb-0 fw-semibold text-warning-emphasis">
+            Aguardando sua aprovação
+            <span class="badge bg-warning text-dark ms-1">{{ pendentes|length }}</span>
+        </h6>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Colaborador</th>
+                    <th>Equipe</th>
+                    <th>Data solicitada</th>
+                    <th>Mês ref.</th>
+                    <th>Solicitado em</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in pendentes %}
+                <tr>
+                    <td>{{ d.colaborador.nome }}</td>
+                    <td class="text-muted small">{{ d.colaborador.equipe.nome }}</td>
+                    <td>{{ d.data_solicitada.strftime('%d/%m/%Y') }}</td>
+                    <td class="text-muted small">{{ d.mes_referencia.strftime('%m/%Y') }}</td>
+                    <td class="text-muted small">{{ d.solicitado_em.strftime('%d/%m/%Y %H:%M') }}</td>
+                    <td class="text-end">
+                        <a href="{{ url_for('dayoff.aprovar', id=d.id) }}"
+                           class="btn btn-sm btn-outline-primary">Analisar</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{# ── Meus day offs ── #}
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-0 pt-3 pb-0">
+        <h6 class="fw-semibold mb-0">Meus day offs</h6>
+    </div>
+    <div class="card-body p-0">
+        {% if not meus %}
+        <p class="text-muted p-4 mb-0">Nenhuma solicitação encontrada.</p>
+        {% else %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Data solicitada</th>
+                        <th>Mês ref.</th>
+                        <th>Status</th>
+                        <th>Comentário</th>
+                        <th>Solicitado em</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in meus %}
+                    <tr>
+                        <td>{{ d.data_solicitada.strftime('%d/%m/%Y') }}</td>
+                        <td class="text-muted small">{{ d.mes_referencia.strftime('%m/%Y') }}</td>
+                        <td>{{ badge_status(d.status) }}</td>
+                        <td class="text-muted small">{{ d.comentario_gestor or '—' }}</td>
+                        <td class="text-muted small">{{ d.solicitado_em.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td class="text-end">
+                            {% if d.status == 'aguardando_gestor' %}
+                            <form method="POST"
+                                  action="{{ url_for('dayoff.cancelar', id=d.id) }}"
+                                  onsubmit="return confirm('Confirma o cancelamento?')">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Cancelar</button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
