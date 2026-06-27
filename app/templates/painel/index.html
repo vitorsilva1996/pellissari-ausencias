@@ -1,56 +1,423 @@
 {% extends 'base.html' %}
 
-{% block title %}Painel{% endblock %}
+{% block title %}Painel Gerencial{% endblock %}
+
+{# ── Macro de badge de status de férias ── #}
+{% macro badge_ferias(status) %}
+  {% if status == 'concluido' %}
+    <span class="badge bg-success">Concluído</span>
+  {% elif status == 'programado' %}
+    <span class="badge bg-primary">Programado</span>
+  {% elif status == 'pendente' %}
+    <span class="badge bg-secondary">Pendente</span>
+  {% elif status == 'atencao' %}
+    <span class="badge bg-warning text-dark">Atenção</span>
+  {% elif status == 'vencido' %}
+    <span class="badge bg-danger">Vencido</span>
+  {% else %}
+    <span class="badge bg-light text-muted border">—</span>
+  {% endif %}
+{% endmacro %}
+
+{% macro badge_ferias_sol(status) %}
+  {% if status == 'aguardando_gestor' %}
+    <span class="badge bg-warning text-dark">Aguardando gestor</span>
+  {% elif status == 'aguardando_rh' %}
+    <span class="badge bg-info text-dark">Aguardando RH</span>
+  {% elif status == 'aprovada' %}
+    <span class="badge bg-success">Aprovada</span>
+  {% endif %}
+{% endmacro %}
 
 {% block content %}
-<div class="mb-4">
-    <h2 class="fw-bold">Olá, {{ current_user.nome.split()[0] }}!</h2>
-    <p class="text-muted">Bem-vindo ao sistema de gestão de ausências da Pellissari.</p>
+<style>
+  .indicator-card { border-left: 4px solid; }
+  .indicator-card.verde  { border-color: #198754; }
+  .indicator-card.azul   { border-color: #0d6efd; }
+  .indicator-card.amarelo{ border-color: #ffc107; }
+  .indicator-card.vermelho{ border-color: #dc3545; }
+  .section-title {
+    font-size: .7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: #6c757d;
+    margin-bottom: .75rem;
+  }
+</style>
+
+{# ── Cabeçalho ── #}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-4">
+    <div>
+        <h2 class="fw-bold mb-0">
+            Painel Gerencial
+            {% if equipe_detalhe %}
+            <span class="text-muted fs-5">— {{ equipe_detalhe.nome }}</span>
+            {% endif %}
+        </h2>
+        <p class="text-muted small mb-0">{{ hoje.strftime('%A, %d de %B de %Y') }}</p>
+    </div>
+
+    <div class="d-flex gap-2 flex-wrap align-items-center">
+        {# Filtro de equipe (apenas RH / diretoria) #}
+        {% if equipes|length > 1 %}
+        <div class="d-flex gap-1 flex-wrap">
+            <a href="{{ url_for('painel.index', equipe='todas') }}"
+               class="btn btn-sm {% if equipe_filtro == 'todas' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+               Todas
+            </a>
+            {% for eq in equipes %}
+            <a href="{{ url_for('painel.index', equipe=eq.id) }}"
+               class="btn btn-sm {% if equipe_filtro == eq.id|string %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+               {{ eq.nome }}
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <a href="{{ url_for('calendario.index') }}" class="btn btn-outline-secondary btn-sm">
+            Ver calendário
+        </a>
+    </div>
 </div>
 
-<div class="row g-3">
-    <div class="col-md-4">
-        <div class="card h-100 border-0 shadow-sm">
+{# ── Cards de indicadores ── #}
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm indicator-card azul h-100">
             <div class="card-body">
-                <h5 class="card-title">Férias</h5>
-                <p class="card-text text-muted small">Solicite e acompanhe seus períodos de férias.</p>
-                <a href="{{ url_for('ferias.index') }}" class="btn btn-outline-primary btn-sm">Acessar</a>
+                <div class="text-muted small mb-1">Colaboradores</div>
+                <div class="display-6 fw-bold">{{ totais.colaboradores }}</div>
+                <div class="text-muted small">ativos no período</div>
             </div>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card h-100 border-0 shadow-sm">
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm indicator-card verde h-100">
             <div class="card-body">
-                <h5 class="card-title">Day Off</h5>
-                <p class="card-text text-muted small">Gerencie suas folgas compensatórias.</p>
-                <a href="{{ url_for('dayoff.index') }}" class="btn btn-outline-primary btn-sm">Acessar</a>
+                <div class="text-muted small mb-1">Férias aprovadas</div>
+                <div class="display-6 fw-bold text-success">{{ totais.ferias_aprovadas }}</div>
+                <div class="text-muted small">vigentes ou futuras</div>
             </div>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card h-100 border-0 shadow-sm">
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm indicator-card amarelo h-100">
             <div class="card-body">
-                <h5 class="card-title">Calendário</h5>
-                <p class="card-text text-muted small">Visualize as ausências da sua equipe.</p>
-                <a href="{{ url_for('calendario.index') }}" class="btn btn-outline-primary btn-sm">Acessar</a>
+                <div class="text-muted small mb-1">Pendentes</div>
+                <div class="display-6 fw-bold text-warning">{{ totais.pendentes }}</div>
+                <div class="text-muted small">aguardando aprovação</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm indicator-card vermelho h-100">
+            <div class="card-body">
+                <div class="text-muted small mb-1">Vencidos / Atenção</div>
+                <div class="display-6 fw-bold {% if totais.vencidos_atencao > 0 %}text-danger{% endif %}">
+                    {{ totais.vencidos_atencao }}
+                </div>
+                <div class="text-muted small">colaboradores em risco</div>
             </div>
         </div>
     </div>
 </div>
 
-<div class="card border-0 shadow-sm mt-4">
-    <div class="card-body">
-        <h6 class="text-muted mb-3">Seus dados</h6>
-        <dl class="row mb-0">
-            <dt class="col-sm-3">Nome</dt>
-            <dd class="col-sm-9">{{ current_user.nome }}</dd>
-            <dt class="col-sm-3">E-mail</dt>
-            <dd class="col-sm-9">{{ current_user.email }}</dd>
-            <dt class="col-sm-3">Função</dt>
-            <dd class="col-sm-9">{{ current_user.funcao }}</dd>
-            <dt class="col-sm-3">Perfil</dt>
-            <dd class="col-sm-9">{{ current_user.perfil | capitalize }}</dd>
-        </dl>
+{# ── Alertas ── #}
+{% set tem_alerta = alertas.vencidos or alertas.dias_30 or alertas.dias_60 or alertas.dias_90 %}
+{% if tem_alerta %}
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-danger bg-opacity-10 border-0 d-flex justify-content-between align-items-center">
+        <h6 class="mb-0 fw-bold text-danger-emphasis">
+            ⚠ Alertas de férias
+        </h6>
+        <button class="btn btn-sm btn-link text-muted p-0"
+                data-bs-toggle="collapse" data-bs-target="#alertas-body">
+            recolher
+        </button>
+    </div>
+    <div id="alertas-body" class="collapse show">
+        <div class="card-body pt-2">
+            <div class="row g-3">
+
+            {% if alertas.vencidos %}
+            <div class="col-md-6 col-lg-3">
+                <div class="section-title text-danger">Vencidos</div>
+                {% for a in alertas.vencidos %}
+                <div class="d-flex justify-content-between align-items-start border-bottom py-1 small">
+                    <div>
+                        <div class="fw-semibold">{{ a.colaborador.nome.split()[0] }} {{ a.colaborador.nome.split()[-1] }}</div>
+                        <div class="text-muted">{{ a.restantes }}d restantes · limite {{ a.periodo.data_limite_saida.strftime('%d/%m/%Y') }}</div>
+                    </div>
+                    <span class="badge bg-danger ms-2">{{ a.dias_limite }}d</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if alertas.dias_30 %}
+            <div class="col-md-6 col-lg-3">
+                <div class="section-title text-warning">Atenção — ≤ 30 dias</div>
+                {% for a in alertas.dias_30 %}
+                <div class="d-flex justify-content-between align-items-start border-bottom py-1 small">
+                    <div>
+                        <div class="fw-semibold">{{ a.colaborador.nome.split()[0] }} {{ a.colaborador.nome.split()[-1] }}</div>
+                        <div class="text-muted">{{ a.restantes }}d · limite {{ a.periodo.data_limite_saida.strftime('%d/%m/%Y') }}</div>
+                    </div>
+                    <span class="badge bg-warning text-dark ms-2">{{ a.dias_limite }}d</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if alertas.dias_60 %}
+            <div class="col-md-6 col-lg-3">
+                <div class="section-title" style="color:#fd7e14">Atenção — 31–60 dias</div>
+                {% for a in alertas.dias_60 %}
+                <div class="d-flex justify-content-between align-items-start border-bottom py-1 small">
+                    <div>
+                        <div class="fw-semibold">{{ a.colaborador.nome.split()[0] }} {{ a.colaborador.nome.split()[-1] }}</div>
+                        <div class="text-muted">{{ a.restantes }}d · limite {{ a.periodo.data_limite_saida.strftime('%d/%m/%Y') }}</div>
+                    </div>
+                    <span class="badge bg-orange text-dark ms-2" style="background:#fd7e14;color:#fff!important">{{ a.dias_limite }}d</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if alertas.dias_90 %}
+            <div class="col-md-6 col-lg-3">
+                <div class="section-title text-muted">No radar — 61–90 dias</div>
+                {% for a in alertas.dias_90 %}
+                <div class="d-flex justify-content-between align-items-start border-bottom py-1 small">
+                    <div>
+                        <div class="fw-semibold">{{ a.colaborador.nome.split()[0] }} {{ a.colaborador.nome.split()[-1] }}</div>
+                        <div class="text-muted">{{ a.restantes }}d · limite {{ a.periodo.data_limite_saida.strftime('%d/%m/%Y') }}</div>
+                    </div>
+                    <span class="badge bg-secondary ms-2">{{ a.dias_limite }}d</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            </div>
+        </div>
     </div>
 </div>
+{% endif %}
+
+{# ── Tabela de colaboradores ── #}
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white border-0 pt-3 pb-0 d-flex justify-content-between align-items-center">
+        <h6 class="fw-bold mb-0">Status de férias por colaborador</h6>
+        {% if equipes|length > 1 %}
+        <div class="d-flex gap-1">
+            {% for eq in equipes %}
+            <a href="{{ url_for('painel.equipe', equipe_id=eq.id) }}"
+               class="btn btn-xs btn-outline-secondary btn-sm" style="font-size:.75rem;padding:2px 8px">
+               {{ eq.nome }}
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Colaborador</th>
+                    <th>Equipe</th>
+                    <th>Período aquisitivo</th>
+                    <th class="text-center">Dias restantes</th>
+                    <th>Limite de saída</th>
+                    <th>Status férias</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in colab_rows %}
+                {% set pp = row.periodo_princ %}
+                <tr class="{% if row.status == 'vencido' %}table-danger{% elif row.status == 'atencao' %}table-warning{% endif %}">
+                    <td class="fw-semibold">{{ row.colaborador.nome }}</td>
+                    <td class="text-muted small">{{ row.colaborador.equipe.nome }}</td>
+
+                    {% if pp %}
+                    <td class="small text-muted">
+                        {{ pp.periodo.data_inicio.strftime('%d/%m/%Y') }}
+                        –
+                        {{ pp.periodo.data_fim.strftime('%d/%m/%Y') }}
+                    </td>
+                    <td class="text-center fw-semibold">
+                        {% if pp.restantes > 0 %}
+                        <span class="{% if row.status in ('vencido','atencao') %}text-danger{% endif %}">
+                            {{ pp.restantes }}
+                        </span>
+                        {% else %}
+                        <span class="text-success">✓</span>
+                        {% endif %}
+                    </td>
+                    <td class="small {% if row.status == 'vencido' %}text-danger fw-semibold{% elif row.status == 'atencao' %}text-warning-emphasis{% endif %}">
+                        {{ pp.periodo.data_limite_saida.strftime('%d/%m/%Y') }}
+                        {% if row.status == 'vencido' %}
+                        <span class="text-danger small">({{ pp.dias_limite | abs }}d atraso)</span>
+                        {% elif row.status == 'atencao' %}
+                        <span class="text-muted small">({{ pp.dias_limite }}d)</span>
+                        {% endif %}
+                    </td>
+                    {% else %}
+                    <td colspan="3" class="text-muted small">Sem período aquisitivo cadastrado</td>
+                    {% endif %}
+
+                    <td>{{ badge_ferias(row.status) }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-muted text-center py-4">Nenhum colaborador encontrado.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{# ── Solicitações pendentes ── #}
+<div class="row g-3 mb-4">
+
+    {# Férias #}
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white border-0 pt-3 pb-0">
+                <h6 class="fw-bold mb-0">
+                    Férias pendentes
+                    {% if pendentes_ferias %}
+                    <span class="badge bg-warning text-dark ms-1">{{ pendentes_ferias|length }}</span>
+                    {% endif %}
+                </h6>
+            </div>
+            <div class="card-body p-0">
+                {% if not pendentes_ferias %}
+                <p class="text-muted small p-3 mb-0">Nenhuma pendência.</p>
+                {% else %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Colaborador</th>
+                                <th>Início</th>
+                                <th>Dias</th>
+                                <th>Status</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for f in pendentes_ferias %}
+                            <tr>
+                                <td class="small">{{ f.colaborador.nome.split()[0] }}</td>
+                                <td class="small">{{ f.data_inicio.strftime('%d/%m/%Y') }}</td>
+                                <td class="small">{{ f.dias }}</td>
+                                <td>{{ badge_ferias_sol(f.status) }}</td>
+                                <td>
+                                    {% if (f.status == 'aguardando_gestor' and current_user.perfil == 'gestor' and f.colaborador.gestor_id == current_user.id)
+                                       or (f.status in ('aguardando_gestor','aguardando_rh') and current_user.perfil in ('rh','diretoria')) %}
+                                    <a href="{{ url_for('ferias.aprovar', id=f.id) }}"
+                                       class="btn btn-xs btn-outline-primary" style="font-size:.7rem;padding:2px 8px">
+                                        Analisar
+                                    </a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {# Day offs #}
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white border-0 pt-3 pb-0">
+                <h6 class="fw-bold mb-0">
+                    Day offs pendentes
+                    {% if pendentes_dayoff %}
+                    <span class="badge bg-warning text-dark ms-1">{{ pendentes_dayoff|length }}</span>
+                    {% endif %}
+                </h6>
+            </div>
+            <div class="card-body p-0">
+                {% if not pendentes_dayoff %}
+                <p class="text-muted small p-3 mb-0">Nenhuma pendência.</p>
+                {% else %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Colaborador</th>
+                                <th>Data</th>
+                                <th>Mês ref.</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for d in pendentes_dayoff %}
+                            <tr>
+                                <td class="small">{{ d.colaborador.nome.split()[0] }}</td>
+                                <td class="small">{{ d.data_solicitada.strftime('%d/%m/%Y') }}</td>
+                                <td class="small text-muted">{{ d.mes_referencia.strftime('%m/%Y') }}</td>
+                                <td>
+                                    {% if current_user.perfil == 'gestor' and d.colaborador.gestor_id == current_user.id
+                                       or current_user.perfil in ('rh','diretoria') %}
+                                    <a href="{{ url_for('dayoff.aprovar', id=d.id) }}"
+                                       class="btn btn-xs btn-outline-primary" style="font-size:.7rem;padding:2px 8px">
+                                        Analisar
+                                    </a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+</div>
+
+{# ── Day offs não solicitados no mês ── #}
+{% if dayoff_sem_solicitacao %}
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-0 pt-3 pb-0">
+        <h6 class="fw-bold mb-0">
+            Day off não solicitado — {{ hoje.strftime('%B/%Y') }}
+            <span class="badge bg-secondary ms-1">{{ dayoff_sem_solicitacao|length }}</span>
+        </h6>
+    </div>
+    <div class="card-body pt-2 pb-3">
+        <p class="text-muted small mb-2">
+            Colaboradores elegíveis que ainda não solicitaram day off este mês:
+        </p>
+        <div class="d-flex flex-wrap gap-2">
+            {% for c in dayoff_sem_solicitacao %}
+            <span class="badge bg-light text-dark border fw-normal px-3 py-2">
+                {{ c.nome }} <span class="text-muted">· {{ c.equipe.nome }}</span>
+            </span>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# ── Legenda de status ── #}
+<div class="d-flex flex-wrap gap-3 mt-4 small text-muted">
+    <span>Legenda:</span>
+    {{ badge_ferias('concluido') }} Todos os dias gozados &nbsp;
+    {{ badge_ferias('programado') }} Férias aprovadas futuras &nbsp;
+    {{ badge_ferias('pendente') }} Sem programação (dentro do prazo) &nbsp;
+    {{ badge_ferias('atencao') }} Limite em até 60 dias &nbsp;
+    {{ badge_ferias('vencido') }} Limite de saída expirado
+</div>
+
 {% endblock %}

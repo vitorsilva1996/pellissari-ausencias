@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+{% block title %}Painel{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h2 class="fw-bold">Olá, {{ current_user.nome.split()[0] }}!</h2>
+    <p class="text-muted">Bem-vindo ao sistema de gestão de ausências da Pellissari.</p>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Férias</h5>
+                <p class="card-text text-muted small">Solicite e acompanhe seus períodos de férias.</p>
+                <a href="{{ url_for('ferias.index') }}" class="btn btn-outline-primary btn-sm">Acessar</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Day Off</h5>
+                <p class="card-text text-muted small">Gerencie suas folgas compensatórias.</p>
+                <a href="{{ url_for('dayoff.index') }}" class="btn btn-outline-primary btn-sm">Acessar</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Calendário</h5>
+                <p class="card-text text-muted small">Visualize as ausências da sua equipe.</p>
+                <a href="{{ url_for('calendario.index') }}" class="btn btn-outline-primary btn-sm">Acessar</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body">
+        <h6 class="text-muted mb-3">Seus dados</h6>
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Nome</dt>
+            <dd class="col-sm-9">{{ current_user.nome }}</dd>
+            <dt class="col-sm-3">E-mail</dt>
+            <dd class="col-sm-9">{{ current_user.email }}</dd>
+            <dt class="col-sm-3">Equipe</dt>
+            <dd class="col-sm-9">{{ current_user.equipe.nome }}</dd>
+            <dt class="col-sm-3">Função</dt>
+            <dd class="col-sm-9">{{ current_user.funcao }}</dd>
+            <dt class="col-sm-3">Admissão</dt>
+            <dd class="col-sm-9">{{ current_user.data_admissao.strftime('%d/%m/%Y') }}</dd>
+        </dl>
+    </div>
+</div>
+{% endblock %}
