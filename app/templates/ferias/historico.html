@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+
+{% block title %}Histórico de Férias{% endblock %}
+
+{% macro badge_status(status) %}
+  {% if status == 'aguardando_gestor' %}
+    <span class="badge bg-warning text-dark">Aguardando gestor</span>
+  {% elif status == 'aguardando_rh' %}
+    <span class="badge bg-info text-dark">Aguardando RH</span>
+  {% elif status == 'aprovada' %}
+    <span class="badge bg-success">Aprovada</span>
+  {% elif status == 'reprovada' %}
+    <span class="badge bg-danger">Reprovada</span>
+  {% elif status == 'cancelada' %}
+    <span class="badge bg-secondary">Cancelada</span>
+  {% endif %}
+{% endmacro %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-2 mb-4">
+    <a href="{{ url_for('ferias.index') }}" class="text-muted text-decoration-none">← Férias</a>
+    <span class="text-muted">/</span>
+    <span class="fw-semibold">Histórico completo</span>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        {% if not lista %}
+        <p class="text-muted p-4 mb-0">Nenhuma solicitação encontrada.</p>
+        {% else %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        {% if current_user.perfil in ('gestor', 'rh', 'diretoria') %}
+                        <th>Colaborador</th>
+                        <th>Equipe</th>
+                        {% endif %}
+                        <th>Período aquisitivo</th>
+                        <th>Início</th>
+                        <th>Dias</th>
+                        <th>Retorno</th>
+                        <th>Status</th>
+                        <th>Solicitado em</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in lista %}
+                    <tr>
+                        {% if current_user.perfil in ('gestor', 'rh', 'diretoria') %}
+                        <td>{{ f.colaborador.nome }}</td>
+                        <td class="text-muted small">{{ f.colaborador.equipe.nome }}</td>
+                        {% endif %}
+                        <td class="small text-muted">
+                            {{ f.periodo_aquisitivo.data_inicio.strftime('%d/%m/%Y') }}
+                            –
+                            {{ f.periodo_aquisitivo.data_fim.strftime('%d/%m/%Y') }}
+                        </td>
+                        <td>{{ f.data_inicio.strftime('%d/%m/%Y') }}</td>
+                        <td>{{ f.dias }}</td>
+                        <td>{{ f.data_retorno.strftime('%d/%m/%Y') }}</td>
+                        <td>{{ badge_status(f.status) }}</td>
+                        <td class="small text-muted">{{ f.solicitado_em.strftime('%d/%m/%Y') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

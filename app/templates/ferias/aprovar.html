@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+
+{% block title %}Analisar Solicitação{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-lg-7">
+
+<div class="d-flex align-items-center gap-2 mb-4">
+    <a href="{{ url_for('ferias.index') }}" class="text-muted text-decoration-none">← Férias</a>
+    <span class="text-muted">/</span>
+    <span class="fw-semibold">Analisar solicitação</span>
+</div>
+
+{# ── Alerta de conflito ── #}
+{% if conflitos %}
+<div class="alert alert-warning d-flex gap-2 align-items-start mb-4">
+    <span class="fs-5">⚠️</span>
+    <div>
+        <strong>Conflito de equipe detectado.</strong>
+        Os seguintes colegas da mesma equipe também têm férias neste período:
+        <ul class="mb-0 mt-1">
+            {% for c in conflitos %}
+            <li>{{ c.nome }} — {{ c.funcao }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endif %}
+
+{# ── Dados da solicitação ── #}
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white border-bottom pt-3 pb-2">
+        <h6 class="fw-bold mb-0">Dados da solicitação</h6>
+    </div>
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-4">Colaborador</dt>
+            <dd class="col-sm-8">{{ f.colaborador.nome }}</dd>
+
+            <dt class="col-sm-4">Equipe</dt>
+            <dd class="col-sm-8">{{ f.colaborador.equipe.nome }}</dd>
+
+            <dt class="col-sm-4">Função</dt>
+            <dd class="col-sm-8">{{ f.colaborador.funcao }}</dd>
+
+            <dt class="col-sm-4">Período aquisitivo</dt>
+            <dd class="col-sm-8">
+                {{ f.periodo_aquisitivo.data_inicio.strftime('%d/%m/%Y') }}
+                –
+                {{ f.periodo_aquisitivo.data_fim.strftime('%d/%m/%Y') }}
+            </dd>
+
+            <dt class="col-sm-4">Data de início</dt>
+            <dd class="col-sm-8">{{ f.data_inicio.strftime('%d/%m/%Y') }}</dd>
+
+            <dt class="col-sm-4">Dias solicitados</dt>
+            <dd class="col-sm-8">{{ f.dias }} dias</dd>
+
+            <dt class="col-sm-4">Data de retorno</dt>
+            <dd class="col-sm-8">{{ f.data_retorno.strftime('%d/%m/%Y') }}</dd>
+
+            <dt class="col-sm-4">Status atual</dt>
+            <dd class="col-sm-8">
+                {% if f.status == 'aguardando_gestor' %}
+                    <span class="badge bg-warning text-dark">Aguardando gestor</span>
+                {% elif f.status == 'aguardando_rh' %}
+                    <span class="badge bg-info text-dark">Aguardando RH</span>
+                {% endif %}
+            </dd>
+
+            <dt class="col-sm-4">Solicitado em</dt>
+            <dd class="col-sm-8">{{ f.solicitado_em.strftime('%d/%m/%Y %H:%M') }}</dd>
+
+            {% if f.comentario_gestor %}
+            <dt class="col-sm-4">Comentário do gestor</dt>
+            <dd class="col-sm-8">{{ f.comentario_gestor }}</dd>
+            {% endif %}
+        </dl>
+    </div>
+</div>
+
+{# ── Formulário de decisão ── #}
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-bottom pt-3 pb-2">
+        <h6 class="fw-bold mb-0">Sua decisão</h6>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('ferias.aprovar', id=f.id) }}" novalidate>
+
+            <div class="mb-4">
+                <label class="form-label fw-semibold" for="comentario">
+                    Comentário <span class="text-muted fw-normal">(opcional)</span>
+                </label>
+                <textarea class="form-control" id="comentario" name="comentario"
+                          rows="3" maxlength="500"
+                          placeholder="Justificativa ou observação..."></textarea>
+            </div>
+
+            <div class="d-flex gap-2 flex-wrap">
+                <button type="submit" name="acao" value="aprovar"
+                        class="btn btn-success"
+                        onclick="return confirm('Confirma a APROVAÇÃO desta solicitação?')">
+                    Aprovar
+                </button>
+                <button type="submit" name="acao" value="reprovar"
+                        class="btn btn-danger"
+                        onclick="return confirm('Confirma a REPROVAÇÃO desta solicitação?')">
+                    Reprovar
+                </button>
+                <a href="{{ url_for('ferias.index') }}" class="btn btn-outline-secondary">
+                    Voltar
+                </a>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+</div>
+</div>
+{% endblock %}

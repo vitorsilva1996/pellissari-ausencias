@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+
+{% block title %}Solicitar Férias{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-lg-7">
+
+<div class="d-flex align-items-center gap-2 mb-4">
+    <a href="{{ url_for('ferias.index') }}" class="text-muted text-decoration-none">← Férias</a>
+    <span class="text-muted">/</span>
+    <span class="fw-semibold">Solicitar</span>
+</div>
+
+{% if not periodos %}
+<div class="alert alert-info">
+    <strong>Sem períodos disponíveis.</strong>
+    Você não possui períodos aquisitivos com dias de férias disponíveis.
+    Entre em contato com o RH.
+</div>
+{% else %}
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-4">
+        <h5 class="fw-bold mb-1">Nova solicitação de férias</h5>
+        <p class="text-muted small mb-4">
+            Férias podem ser divididas em no máximo 2 períodos (ex: 15 + 15 dias).
+            O segundo período não pode ser inferior a 15 dias.
+        </p>
+
+        <form method="POST" action="{{ url_for('ferias.solicitar') }}" novalidate>
+
+            {# Período aquisitivo #}
+            <div class="mb-4">
+                <label class="form-label fw-semibold" for="periodo_aquisitivo_id">
+                    Período aquisitivo
+                </label>
+                <select class="form-select" id="periodo_aquisitivo_id"
+                        name="periodo_aquisitivo_id" required>
+                    <option value="">Selecione...</option>
+                    {% for p in periodos %}
+                    <option value="{{ p.id }}">
+                        {{ p.data_inicio.strftime('%d/%m/%Y') }} –
+                        {{ p.data_fim.strftime('%d/%m/%Y') }}
+                        &nbsp;·&nbsp; {{ p.dias_restantes() }} dia(s) disponíveis
+                        (limite: {{ p.data_limite_saida.strftime('%d/%m/%Y') }})
+                    </option>
+                    {% endfor %}
+                </select>
+                <div class="form-text">
+                    Atenção ao prazo limite de saída de cada período.
+                </div>
+            </div>
+
+            {# Data de início #}
+            <div class="mb-4">
+                <label class="form-label fw-semibold" for="data_inicio">
+                    Data de início
+                </label>
+                <input type="date" class="form-control" id="data_inicio"
+                       name="data_inicio"
+                       min="{{ today }}"
+                       value="{{ request.form.get('data_inicio', '') }}"
+                       required>
+            </div>
+
+            {# Quantidade de dias #}
+            <div class="mb-4">
+                <label class="form-label fw-semibold">Quantidade de dias</label>
+                <div class="d-flex gap-3">
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="dias"
+                               id="dias15" value="15"
+                               {% if request.form.get('dias') == '15' %}checked{% endif %}>
+                        <label class="form-check-label" for="dias15">15 dias</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="dias"
+                               id="dias30" value="30"
+                               {% if request.form.get('dias') == '30' %}checked{% endif %}>
+                        <label class="form-check-label" for="dias30">30 dias</label>
+                    </div>
+                </div>
+                <div class="form-text">
+                    A data de retorno será calculada automaticamente com base nos dias escolhidos.
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 mt-4">
+                <button type="submit" class="btn btn-primary">Enviar solicitação</button>
+                <a href="{{ url_for('ferias.index') }}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endif %}
+</div>
+</div>
+{% endblock %}

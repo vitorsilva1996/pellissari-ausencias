@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+
+{% block title %}Férias{% endblock %}
+
+{% macro badge_status(status) %}
+  {% if status == 'aguardando_gestor' %}
+    <span class="badge bg-warning text-dark">Aguardando gestor</span>
+  {% elif status == 'aguardando_rh' %}
+    <span class="badge bg-info text-dark">Aguardando RH</span>
+  {% elif status == 'aprovada' %}
+    <span class="badge bg-success">Aprovada</span>
+  {% elif status == 'reprovada' %}
+    <span class="badge bg-danger">Reprovada</span>
+  {% elif status == 'cancelada' %}
+    <span class="badge bg-secondary">Cancelada</span>
+  {% endif %}
+{% endmacro %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold mb-0">Férias</h2>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('ferias.historico') }}" class="btn btn-outline-secondary btn-sm">Histórico completo</a>
+        <a href="{{ url_for('ferias.solicitar') }}" class="btn btn-primary btn-sm">+ Solicitar férias</a>
+    </div>
+</div>
+
+{# ── Pendentes para aprovação (gestor / RH) ── #}
+{% if pendentes %}
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-warning bg-opacity-10 border-0">
+        <h6 class="mb-0 fw-semibold text-warning-emphasis">
+            Aguardando sua aprovação
+            <span class="badge bg-warning text-dark ms-1">{{ pendentes|length }}</span>
+        </h6>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Colaborador</th>
+                    <th>Equipe</th>
+                    <th>Início</th>
+                    <th>Dias</th>
+                    <th>Retorno</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for f in pendentes %}
+                <tr>
+                    <td>{{ f.colaborador.nome }}</td>
+                    <td class="text-muted small">{{ f.colaborador.equipe.nome }}</td>
+                    <td>{{ f.data_inicio.strftime('%d/%m/%Y') }}</td>
+                    <td>{{ f.dias }}</td>
+                    <td>{{ f.data_retorno.strftime('%d/%m/%Y') }}</td>
+                    <td>{{ badge_status(f.status) }}</td>
+                    <td class="text-end">
+                        <a href="{{ url_for('ferias.aprovar', id=f.id) }}"
+                           class="btn btn-sm btn-outline-primary">Analisar</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{# ── Minhas solicitações ── #}
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-0 pt-3 pb-0">
+        <h6 class="fw-semibold mb-0">Minhas solicitações</h6>
+    </div>
+    <div class="card-body p-0">
+        {% if not minhas %}
+        <p class="text-muted p-4 mb-0">Você ainda não fez nenhuma solicitação de férias.</p>
+        {% else %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Período aquisitivo</th>
+                        <th>Início</th>
+                        <th>Dias</th>
+                        <th>Retorno</th>
+                        <th>Status</th>
+                        <th>Solicitado em</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in minhas %}
+                    <tr>
+                        <td class="small text-muted">
+                            {{ f.periodo_aquisitivo.data_inicio.strftime('%d/%m/%Y') }}
+                            –
+                            {{ f.periodo_aquisitivo.data_fim.strftime('%d/%m/%Y') }}
+                        </td>
+                        <td>{{ f.data_inicio.strftime('%d/%m/%Y') }}</td>
+                        <td>{{ f.dias }}</td>
+                        <td>{{ f.data_retorno.strftime('%d/%m/%Y') }}</td>
+                        <td>{{ badge_status(f.status) }}</td>
+                        <td class="small text-muted">{{ f.solicitado_em.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td class="text-end">
+                            {% if f.status == 'aguardando_gestor' %}
+                            <form method="POST"
+                                  action="{{ url_for('ferias.cancelar', id=f.id) }}"
+                                  onsubmit="return confirm('Confirma o cancelamento desta solicitação?')">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Cancelar</button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% if f.comentario_gestor or f.comentario_rh %}
+                    <tr class="table-light">
+                        <td colspan="7" class="small text-muted pb-2 pt-0 px-3">
+                            {% if f.comentario_gestor %}
+                            <span class="fw-semibold">Gestor:</span> {{ f.comentario_gestor }}
+                            {% endif %}
+                            {% if f.comentario_rh %}
+                            &nbsp;|&nbsp;
+                            <span class="fw-semibold">RH:</span> {{ f.comentario_rh }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
