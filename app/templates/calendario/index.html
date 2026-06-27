@@ -1,0 +1,211 @@
+{% extends 'base.html' %}
+
+{% block title %}Calendário — {{ nome_mes }} {{ ano }}{% endblock %}
+
+{% block content %}
+<style>
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    border-top: 1px solid #dee2e6;
+    border-left: 1px solid #dee2e6;
+  }
+  .cal-cell {
+    min-height: 110px;
+    border-right: 1px solid #dee2e6;
+    border-bottom: 1px solid #dee2e6;
+    padding: 6px 8px;
+    background: #fff;
+    vertical-align: top;
+  }
+  .cal-cell.fora-mes {
+    background: #f8f9fa;
+  }
+  .cal-cell.hoje-cell {
+    background: #eef4ff;
+  }
+  .cal-cell.conflito-cell {
+    background: #fff9e6;
+  }
+  .cal-cell.conflito-cell .cal-dia-num {
+    color: #856404;
+  }
+  .cal-header-cell {
+    border-right: 1px solid #dee2e6;
+    border-bottom: 1px solid #dee2e6;
+    padding: 6px 8px;
+    background: #f8f9fa;
+    font-size: .78rem;
+    font-weight: 600;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: #6c757d;
+  }
+  .cal-dia-num {
+    font-size: .85rem;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 4px;
+  }
+  .cal-dia-num.hoje-num {
+    background: #0d6efd;
+    color: #fff;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .78rem;
+  }
+  .ausencia-badge {
+    display: block;
+    font-size: .7rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-bottom: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    cursor: default;
+  }
+  .ausencia-ferias {
+    background: #cfe2ff;
+    color: #084298;
+    border: 1px solid #b6d4fe;
+  }
+  .ausencia-dayoff {
+    background: #d1e7dd;
+    color: #0a3622;
+    border: 1px solid #a3cfbb;
+  }
+  .conflito-indicator {
+    font-size: .65rem;
+    color: #856404;
+    font-weight: 600;
+  }
+</style>
+
+{# ── Cabeçalho / Navegação ── #}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <a href="{{ url_for('calendario.mes_especifico', ano=prev_ano, mes=prev_mes, equipe=equipe_filtro) }}"
+       class="btn btn-outline-secondary btn-sm">&#8592; {{ ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'][prev_mes] }}&nbsp;{{ prev_ano }}</a>
+
+    <h4 class="mb-0 fw-bold">{{ nome_mes }} {{ ano }}</h4>
+
+    <a href="{{ url_for('calendario.mes_especifico', ano=next_ano, mes=next_mes, equipe=equipe_filtro) }}"
+       class="btn btn-outline-secondary btn-sm">{{ ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'][next_mes] }}&nbsp;{{ next_ano }} &#8594;</a>
+</div>
+
+{# ── Filtro por equipe (RH / diretoria veem mais de uma) ── #}
+{% if equipes_disponiveis|length > 1 %}
+<div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+    <span class="text-muted small">Equipe:</span>
+    <a href="{{ url_for('calendario.mes_especifico', ano=ano, mes=mes, equipe='todas') }}"
+       class="btn btn-sm {% if equipe_filtro == 'todas' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+        Todas
+    </a>
+    {% for eq in equipes_disponiveis %}
+    <a href="{{ url_for('calendario.mes_especifico', ano=ano, mes=mes, equipe=eq.id) }}"
+       class="btn btn-sm {% if equipe_filtro == eq.id|string %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+        {{ eq.nome }}
+    </a>
+    {% endfor %}
+</div>
+{% endif %}
+
+{# ── Legenda ── #}
+<div class="d-flex gap-3 mb-3 align-items-center flex-wrap">
+    <span class="ausencia-badge ausencia-ferias" style="display:inline-block">Férias</span>
+    <span class="ausencia-badge ausencia-dayoff" style="display:inline-block">Day Off</span>
+    <span class="d-inline-flex align-items-center gap-1">
+        <span style="display:inline-block;width:14px;height:14px;background:#fff9e6;border:1px solid #dee2e6;border-radius:3px"></span>
+        <span class="text-muted small">Conflito de equipe</span>
+    </span>
+</div>
+
+{# ── Grade do calendário ── #}
+<div class="cal-grid rounded border-start-0 border-top-0" style="border:1px solid #dee2e6;border-radius:8px;overflow:hidden">
+
+    {# Cabeçalho dos dias da semana #}
+    {% for dia_nome in dias_semana %}
+    <div class="cal-header-cell">{{ dia_nome }}</div>
+    {% endfor %}
+
+    {# Semanas #}
+    {% for semana in semanas %}
+        {% for dia in semana %}
+        {% if dia == 0 %}
+        <div class="cal-cell fora-mes"></div>
+        {% else %}
+        {% set is_hoje = (dia == hoje.day and mes == hoje.month and ano == hoje.year) %}
+        {% set tem_conflito = dia in conflito_por_dia %}
+        {% set ausencias_dia = ausencias_por_dia.get(dia, []) %}
+        <div class="cal-cell
+                    {% if is_hoje %}hoje-cell{% endif %}
+                    {% if tem_conflito %}conflito-cell{% endif %}">
+
+            {# Número do dia #}
+            <div class="cal-dia-num {% if is_hoje %}hoje-num{% endif %}">{{ dia }}</div>
+
+            {# Indicador de conflito #}
+            {% if tem_conflito %}
+            <div class="conflito-indicator mb-1">⚠ conflito</div>
+            {% endif %}
+
+            {# Badges de ausência #}
+            {% for a in ausencias_dia %}
+            <span class="ausencia-badge ausencia-{{ a.tipo }}"
+                  title="{{ a.nome }}{% if a.tipo == 'ferias' %} (Férias){% else %} (Day Off){% endif %}">
+                {{ a.nome_curto }}
+            </span>
+            {% endfor %}
+
+            {# Indicador de overflow se muitos ausentes #}
+            {% if ausencias_dia|length > 4 %}
+            <span class="text-muted" style="font-size:.65rem">
+                +{{ ausencias_dia|length - 4 }} mais
+            </span>
+            {% endif %}
+        </div>
+        {% endif %}
+        {% endfor %}
+    {% endfor %}
+
+</div>
+
+{# ── Resumo do mês ── #}
+{% set total_ausencias = ausencias_por_dia.values() | sum(start=[]) | list | length %}
+{% if total_ausencias > 0 %}
+<div class="mt-4">
+    <h6 class="fw-semibold text-muted mb-2">Ausências em {{ nome_mes }}</h6>
+    <div class="row g-2">
+        {% for dia in range(1, 32) if dia in ausencias_por_dia %}
+        <div class="col-auto">
+            <div class="card border-0 shadow-sm px-3 py-2" style="min-width:180px">
+                <div class="text-muted small fw-semibold mb-1">
+                    {{ ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'][mes] }} {{ '%02d'|format(dia) }}
+                    {% if dia in conflito_por_dia %}
+                    <span class="text-warning ms-1">⚠</span>
+                    {% endif %}
+                </div>
+                {% for a in ausencias_por_dia[dia] %}
+                <div class="d-flex align-items-center gap-1 mb-1">
+                    <span class="ausencia-badge ausencia-{{ a.tipo }}" style="display:inline-block">
+                        {{ '🏖' if a.tipo == 'ferias' else '☀️' }}
+                        {{ a.nome.split()[0] }} {{ a.nome.split()[-1] if a.nome.split()|length > 1 else '' }}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% else %}
+<p class="text-muted mt-4 text-center small">Nenhuma ausência aprovada em {{ nome_mes }} {{ ano }}.</p>
+{% endif %}
+
+{% endblock %}
