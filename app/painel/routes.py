@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from flask import render_template, request, abort
 from flask_login import login_required, current_user
 
+from app import db
 from app.painel import painel
 from app.models import (
     Colaborador, Equipe, PeriodoAquisitivo, Ferias, DayOff
@@ -197,7 +198,7 @@ def _dados_painel(equipe_ids, hoje):
 @painel.route('/')
 @login_required
 def index():
-    # Colaboradores veem o painel pessoal simplificado
+    db.session.refresh(current_user._get_current_object())
     if current_user.perfil == 'colaborador':
         return render_template('painel/pessoal.html')
 

@@ -11,7 +11,7 @@ from app.models import Equipe, Colaborador, PeriodoAquisitivo
 
 @pytest.fixture(scope='session')
 def app():
-    """Cria a aplicação de teste uma vez por sessão."""
+    """Cria a aplicação de teste uma única vez por sessão."""
     _app = create_app('testing')
     ctx = _app.app_context()
     ctx.push()
@@ -27,18 +27,37 @@ def client(app):  # noqa: F811
 
 
 @pytest.fixture(autouse=True)
-def clean_tables():
-    """Limpa todas as linhas entre testes; mantém o schema intacto."""
-    yield
+def isolated_db(app):  # noqa: F811
+    """
+    Isolamento de sessão por teste.
+
+    Antes do teste: expira o identity map para não herdar estado da sessão anterior.
+    Depois do teste: rollback de transações pendentes, deleta todos os dados,
+    expira o identity map e remove a sessão — o próximo teste começa sem rastros.
+
+    Esse padrão evita ObjectDeletedError causado por objetos de um teste
+    ficando marcados como 'deleted' no identity map quando o próximo teste roda.
+    """
+    _db.session.expire_all()
+    yield _db.session
     _db.session.rollback()
-    # Nulifica FK auto-referencial antes de deletar colaboradores
-    _db.session.execute(
-        Colaborador.__table__.update().values(gestor_id=None)
-    )
-    _db.session.commit()
-    for table in reversed(_db.metadata.sorted_tables):
-        _db.session.execute(table.delete())
-    _db.session.commit()
+    try:
+        # Remove FK auto-referencial antes de deletar colaboradores
+        _db.session.execute(
+            Colaborador.__table__.update().values(gestor_id=None)
+        )
+        _db.session.commit()
+        for table in reversed(_db.metadata.sorted_tables):
+            _db.session.execute(table.delete())
+        _db.session.commit()
+    except Exception:
+        _db.session.rollback()
+    finally:
+        # Expira todos os objetos do identity map para o próximo teste não ver
+        # objetos marcados como deleted
+        _db.session.expire_all()
+        # Remove a sessão do registry — próximo acesso cria sessão limpa
+        _db.session.remove()
 
 
 # ── Dados de suporte ──────────────────────────────────────────────────────────
@@ -48,6 +67,7 @@ def equipe():
     e = Equipe(nome='Equipe Teste', descricao='Equipe para testes automatizados')
     _db.session.add(e)
     _db.session.commit()
+    _db.session.refresh(e)
     return e
 
 
@@ -64,6 +84,7 @@ def gestor(equipe):
     g.set_senha('senha123')
     _db.session.add(g)
     _db.session.commit()
+    _db.session.refresh(g)
     return g
 
 
@@ -82,6 +103,7 @@ def colaborador(equipe, gestor):
     c.set_senha('senha123')
     _db.session.add(c)
     _db.session.commit()
+    _db.session.refresh(c)
     return c
 
 
@@ -100,6 +122,7 @@ def colaborador_novo(equipe, gestor):
     c.set_senha('senha123')
     _db.session.add(c)
     _db.session.commit()
+    _db.session.refresh(c)
     return c
 
 
@@ -116,6 +139,7 @@ def rh(equipe):
     r.set_senha('senha123')
     _db.session.add(r)
     _db.session.commit()
+    _db.session.refresh(r)
     return r
 
 
@@ -132,6 +156,7 @@ def periodo(colaborador):
     )
     _db.session.add(p)
     _db.session.commit()
+    _db.session.refresh(p)
     return p
 
 
@@ -141,9 +166,11 @@ def periodo(colaborador):
 def login_as(client):  # noqa: F811
     """Retorna função que faz login via POST e devolve a resposta final."""
     def _login(user, senha='senha123'):
+        # Lê email antes de qualquer potencial expiração de sessão
+        email = user.email
         return client.post(
             '/login',
-            data={'email': user.email, 'senha': senha},
+            data={'email': email, 'senha': senha},
             follow_redirects=True,
         )
     return _login
