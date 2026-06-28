@@ -1,0 +1,26 @@
+{% extends 'emails/base_email.html' %}
+{% block body %}
+<h2>Resultado da sua solicitação de day off</h2>
+
+<p>Olá, <strong>{{ dayoff.colaborador.nome.split()[0] }}</strong>!</p>
+
+{% if aprovado %}
+<p>Seu day off foi <strong>aprovado</strong>!</p>
+<p><span class="badge-ok">APROVADO</span></p>
+{% else %}
+<p>Sua solicitação de day off foi <strong>reprovada</strong>.</p>
+<p><span class="badge-err">REPROVADO</span></p>
+{% endif %}
+
+<div class="info-box">
+  <div class="row"><span class="label">Data</span><span class="value">{{ dayoff.data_solicitada.strftime('%d/%m/%Y') }}</span></div>
+  <div class="row"><span class="label">Mês de referência</span><span class="value">{{ dayoff.mes_referencia.strftime('%m/%Y') }}</span></div>
+  {% if dayoff.comentario_gestor %}
+  <div class="row"><span class="label">Comentário</span><span class="value">{{ dayoff.comentario_gestor }}</span></div>
+  {% endif %}
+</div>
+
+{% if not aprovado %}
+<p>Entre em contato com seu gestor para mais informações.</p>
+{% endif %}
+{% endblock %}

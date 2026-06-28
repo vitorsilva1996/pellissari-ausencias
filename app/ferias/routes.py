@@ -6,6 +6,11 @@ from flask_login import login_required, current_user
 from app.ferias import ferias
 from app.models import Ferias, PeriodoAquisitivo, Notificacao, Colaborador
 from app import db
+from app.notificacoes.email import (
+    enviar_notificacao_ferias_gestor,
+    enviar_notificacao_ferias_rh,
+    enviar_notificacao_ferias_colaborador,
+)
 
 
 def _criar_notificacao(colaborador_id, tipo, mensagem):
@@ -155,6 +160,7 @@ def solicitar():
             )
 
         db.session.commit()
+        enviar_notificacao_ferias_gestor(nova)
 
         conflitos = _conflitos_equipe(current_user, data_inicio, data_retorno)
         if conflitos:
@@ -198,6 +204,7 @@ def aprovar(id):
             flash('Ação inválida.', 'danger')
             return render_template('ferias/aprovar.html', f=f, conflitos=conflitos)
 
+        _acao_gestor = None
         if current_user.perfil == 'gestor':
             if acao == 'aprovar':
                 f.status = 'aguardando_rh'
@@ -217,6 +224,7 @@ def aprovar(id):
                         f'aguardando validação do RH.',
                     )
                 flash('Férias aprovadas e encaminhadas ao RH.', 'success')
+                _acao_gestor = 'aprovada_rh'
             else:
                 f.status = 'reprovada'
                 f.comentario_gestor = comentario
@@ -227,6 +235,7 @@ def aprovar(id):
                     f'pelo gestor.' + (f' Motivo: {comentario}' if comentario else ''),
                 )
                 flash('Solicitação reprovada.', 'info')
+                _acao_gestor = 'reprovada'
 
         else:  # rh / diretoria
             if f.status == 'aguardando_gestor':
@@ -255,6 +264,15 @@ def aprovar(id):
                 flash('Solicitação reprovada.', 'info')
 
         db.session.commit()
+
+        if current_user.perfil == 'gestor':
+            if _acao_gestor == 'aprovada_rh':
+                enviar_notificacao_ferias_rh(f)
+            else:
+                enviar_notificacao_ferias_colaborador(f)
+        else:
+            enviar_notificacao_ferias_colaborador(f)
+
         return redirect(url_for('ferias.index'))
 
     return render_template('ferias/aprovar.html', f=f, conflitos=conflitos)

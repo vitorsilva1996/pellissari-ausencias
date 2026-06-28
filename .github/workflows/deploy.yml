@@ -1,19 +1,36 @@
 name: Deploy
 
+# Dispara quando o workflow de CI completa na branch main.
+# O deploy só avança se o CI passou (conclusion == 'success').
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows: ["CI"]
+    branches: [main]
+    types: [completed]
 
 jobs:
-  deploy:
+  build-and-push:
+    name: Build & push Docker image
     runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success'
+
+    outputs:
+      image: ${{ steps.meta.outputs.tags }}
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Faz checkout do commit que disparou o CI, não o HEAD atual
+          ref: ${{ github.event.workflow_run.head_sha }}
 
-      - name: Build Docker image
-        run: docker build -t ghcr.io/${{ github.repository }}:latest .
+      - name: Docker meta (tags e labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=sha,prefix=,suffix=,format=short
+            type=raw,value=latest
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -22,17 +39,78 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Push image
-        run: docker push ghcr.io/${{ github.repository }}:latest
-
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
+      - name: Build e push da imagem
+        uses: docker/build-push-action@v6
         with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          script: |
-            cd /opt/pellissari-ausencias
-            docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d --no-deps --build app
-            docker compose -f docker-compose.prod.yml exec -T app flask db upgrade
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  smoke-test:
+    name: Smoke test
+    runs-on: ubuntu-latest
+    needs: build-and-push
+
+    steps:
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Iniciar container para smoke test
+        run: |
+          docker run -d --name smoke \
+            -e FLASK_ENV=development \
+            -e FLASK_SECRET_KEY=smoke-test-only \
+            -e DATABASE_URL="sqlite:////tmp/smoke.db" \
+            -e MAIL_SERVER=localhost \
+            -e MAIL_PORT=25 \
+            -e MAIL_USE_TLS=false \
+            -p 5001:5000 \
+            ghcr.io/${{ github.repository }}:latest
+          sleep 10
+
+      - name: Verificar resposta HTTP da aplicação
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5001/login)
+          echo "HTTP status: $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "Smoke test falhou — esperado 200, recebido $STATUS"
+            docker logs smoke
+            exit 1
+          fi
+          echo "Smoke test passou."
+
+      - name: Encerrar container
+        if: always()
+        run: docker stop smoke && docker rm smoke
+
+  # ── Deploy via SSH ───────────────────────────────────────────────────────────
+  # Descomente e configure os secrets SERVER_HOST, SERVER_USER e SERVER_SSH_KEY
+  # quando o servidor de produção estiver disponível.
+  #
+  # deploy:
+  #   name: Deploy no servidor
+  #   runs-on: ubuntu-latest
+  #   needs: smoke-test
+  #   environment: production
+  #
+  #   steps:
+  #     - name: Deploy via SSH
+  #       uses: appleboy/ssh-action@v1
+  #       with:
+  #         host: ${{ secrets.SERVER_HOST }}
+  #         username: ${{ secrets.SERVER_USER }}
+  #         key: ${{ secrets.SERVER_SSH_KEY }}
+  #         script: |
+  #           cd /opt/pellissari-ausencias
+  #           docker compose -f docker-compose.prod.yml pull
+  #           docker compose -f docker-compose.prod.yml up -d --no-deps --build app
+  #           docker compose -f docker-compose.prod.yml exec -T app flask db upgrade
+  #
+  #     - name: Smoke test pós-deploy
+  #       run: |
+  #         curl --retry 5 --retry-delay 5 -f http://${{ secrets.SERVER_HOST }}/login

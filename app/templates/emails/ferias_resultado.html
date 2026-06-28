@@ -1,0 +1,31 @@
+{% extends 'emails/base_email.html' %}
+{% block body %}
+<h2>Resultado da sua solicitação de férias</h2>
+
+<p>Olá, <strong>{{ ferias.colaborador.nome.split()[0] }}</strong>!</p>
+
+{% if aprovada %}
+<p>Suas férias foram <strong>aprovadas</strong>! Confira os detalhes abaixo.</p>
+<p><span class="badge-ok">APROVADO</span></p>
+{% else %}
+<p>Infelizmente sua solicitação de férias foi <strong>reprovada</strong>.</p>
+<p><span class="badge-err">REPROVADO</span></p>
+{% endif %}
+
+<div class="info-box">
+  <div class="row"><span class="label">Período</span><span class="value">{{ ferias.data_inicio.strftime('%d/%m/%Y') }} — {{ (ferias.data_retorno - timedelta(days=1)).strftime('%d/%m/%Y') }}</span></div>
+  <div class="row"><span class="label">Dias</span><span class="value">{{ ferias.dias }} dias</span></div>
+  {% if aprovada %}
+  <div class="row"><span class="label">Retorno ao trabalho</span><span class="value">{{ ferias.data_retorno.strftime('%d/%m/%Y') }}</span></div>
+  {% endif %}
+  {% if ferias.comentario_rh %}
+  <div class="row"><span class="label">Comentário RH</span><span class="value">{{ ferias.comentario_rh }}</span></div>
+  {% elif ferias.comentario_gestor %}
+  <div class="row"><span class="label">Comentário</span><span class="value">{{ ferias.comentario_gestor }}</span></div>
+  {% endif %}
+</div>
+
+{% if not aprovada %}
+<p>Entre em contato com seu gestor ou com o RH para mais informações.</p>
+{% endif %}
+{% endblock %}

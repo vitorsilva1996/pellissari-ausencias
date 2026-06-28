@@ -43,8 +43,9 @@ def create_app(config_name=None):
     mail.init_app(app)
     bcrypt.init_app(app)
 
-    if not scheduler.running:
+    if not app.config.get('TESTING') and not scheduler.running:
         scheduler.init_app(app)
+        import app.notificacoes.scheduler  # noqa: F401 — registra os jobs
         scheduler.start()
 
     from app.auth import auth as auth_blueprint
@@ -62,6 +63,10 @@ def create_app(config_name=None):
     app.register_blueprint(calendario_blueprint, url_prefix='/calendario')
     app.register_blueprint(painel_blueprint, url_prefix='/painel')
     app.register_blueprint(notif_blueprint, url_prefix='/notificacoes')
+
+    # ── Global timedelta para templates de e-mail ─────────────────────────────
+    from datetime import timedelta
+    app.jinja_env.globals['timedelta'] = timedelta
 
     # ── Filtro de data em português ──────────────────────────────────────────
     _MESES_BR = [

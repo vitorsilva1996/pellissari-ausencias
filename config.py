@@ -40,8 +40,19 @@ class ProductionConfig(Config):
             raise RuntimeError('DATABASE_URL não definida no ambiente de produção')
 
 
+class TestingConfig(Config):
+    TESTING = True
+    DEBUG = True
+    MAIL_SUPPRESS_SEND = True
+    SCHEDULER_API_ENABLED = False
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', 'sqlite:///:memory:')
+    # Chave fixa para testes — nunca usar em produção
+    SECRET_KEY = 'chave-de-teste-nao-usar-em-producao'
+
+
 config = {
     'development': DevelopmentConfig,
     'production': ProductionConfig,
+    'testing': TestingConfig,
     'default': DevelopmentConfig,
 }

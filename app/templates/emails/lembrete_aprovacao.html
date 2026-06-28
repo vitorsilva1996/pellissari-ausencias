@@ -1,0 +1,23 @@
+{% extends 'emails/base_email.html' %}
+{% block body %}
+<h2>Lembrete: solicitação aguardando resposta</h2>
+
+<p>
+  Há uma solicitação de <strong>{{ 'férias' if tipo == 'ferias' else 'day off' }}</strong>
+  aguardando sua resposta como <strong>{{ papel }}</strong> há mais de 3 dias úteis.
+</p>
+
+<div class="info-box">
+  <div class="row"><span class="label">Colaborador</span><span class="value">{{ solicitacao.colaborador.nome }}</span></div>
+  {% if tipo == 'ferias' %}
+  <div class="row"><span class="label">Período</span><span class="value">{{ solicitacao.data_inicio.strftime('%d/%m/%Y') }} ({{ solicitacao.dias }} dias)</span></div>
+  <div class="row"><span class="label">Status atual</span><span class="value">{{ solicitacao.status.replace('_', ' ').title() }}</span></div>
+  <div class="row"><span class="label">Solicitado em</span><span class="value">{{ solicitacao.solicitado_em.strftime('%d/%m/%Y') }}</span></div>
+  {% else %}
+  <div class="row"><span class="label">Data</span><span class="value">{{ solicitacao.data_solicitada.strftime('%d/%m/%Y') }}</span></div>
+  <div class="row"><span class="label">Solicitado em</span><span class="value">{{ solicitacao.solicitado_em.strftime('%d/%m/%Y') }}</span></div>
+  {% endif %}
+</div>
+
+<p>Por favor, acesse o sistema e tome uma decisão o quanto antes.</p>
+{% endblock %}

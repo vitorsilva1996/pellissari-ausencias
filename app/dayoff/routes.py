@@ -8,6 +8,10 @@ from flask_login import login_required, current_user
 from app.dayoff import dayoff
 from app.models import DayOff, Notificacao, Colaborador
 from app import db
+from app.notificacoes.email import (
+    enviar_notificacao_dayoff_gestor,
+    enviar_notificacao_dayoff_colaborador,
+)
 
 
 def _criar_notificacao(colaborador_id, tipo, mensagem):
@@ -167,6 +171,7 @@ def solicitar():
             )
 
         db.session.commit()
+        enviar_notificacao_dayoff_gestor(novo)
 
         conflitos = _conflitos_equipe(current_user, data_solicitada)
         if conflitos:
@@ -241,6 +246,7 @@ def aprovar(id):
             flash('Solicitação reprovada.', 'info')
 
         db.session.commit()
+        enviar_notificacao_dayoff_colaborador(d)
         return redirect(url_for('dayoff.index'))
 
     return render_template('dayoff/aprovar.html', d=d, conflitos=conflitos)

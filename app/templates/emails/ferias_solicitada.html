@@ -1,0 +1,29 @@
+{% extends 'emails/base_email.html' %}
+{% block body %}
+<h2>{% if para_rh %}Férias aguardando validação do RH{% else %}Nova solicitação de férias{% endif %}</h2>
+
+{% if destinatario %}
+<p>Olá, <strong>{{ destinatario.nome.split()[0] }}</strong>!</p>
+{% else %}
+<p>Prezada equipe de RH,</p>
+{% endif %}
+
+<p>
+  {% if para_rh %}
+    As férias abaixo foram aprovadas pelo gestor e aguardam validação do RH.
+  {% else %}
+    <strong>{{ ferias.colaborador.nome }}</strong> solicitou férias e aguarda sua aprovação.
+  {% endif %}
+</p>
+
+<div class="info-box">
+  <div class="row"><span class="label">Colaborador</span><span class="value">{{ ferias.colaborador.nome }}</span></div>
+  <div class="row"><span class="label">Equipe</span><span class="value">{{ ferias.colaborador.equipe.nome if ferias.colaborador.equipe else '—' }}</span></div>
+  <div class="row"><span class="label">Período</span><span class="value">{{ ferias.data_inicio.strftime('%d/%m/%Y') }} — {{ (ferias.data_retorno - timedelta(days=1)).strftime('%d/%m/%Y') }}</span></div>
+  <div class="row"><span class="label">Dias</span><span class="value">{{ ferias.dias }} dias</span></div>
+  <div class="row"><span class="label">Retorno ao trabalho</span><span class="value">{{ ferias.data_retorno.strftime('%d/%m/%Y') }}</span></div>
+  <div class="row"><span class="label">Solicitado em</span><span class="value">{{ ferias.solicitado_em.strftime('%d/%m/%Y às %H:%M') }}</span></div>
+</div>
+
+<p>Acesse o sistema para aprovar ou reprovar esta solicitação.</p>
+{% endblock %}
