@@ -31,13 +31,16 @@ def isolated_db(app):  # noqa: F811
     """
     Isolamento de sessão por teste.
 
-    Antes do teste: expira o identity map para não herdar estado da sessão anterior.
-    Depois do teste: rollback de transações pendentes, deleta todos os dados,
-    expira o identity map e remove a sessão — o próximo teste começa sem rastros.
-
-    Esse padrão evita ObjectDeletedError causado por objetos de um teste
-    ficando marcados como 'deleted' no identity map quando o próximo teste roda.
+    Flask 3.x armazena `g` no AppContext. O AppContext do teste é de longa
+    duração e é reutilizado por todas as requisições via test client, então
+    `g._login_user` (Flask-Login) vaza de um teste para o próximo.
+    Resetar `g` aqui garante que cada teste começa sem usuário autenticado.
     """
+    from flask.globals import _cv_app
+    _app_ctx = _cv_app.get(None)
+    if _app_ctx is not None:
+        _app_ctx.g = app.app_ctx_globals_class()
+
     _db.session.expire_all()
     yield _db.session
     _db.session.rollback()

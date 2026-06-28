@@ -198,8 +198,8 @@ def _dados_painel(equipe_ids, hoje):
 @painel.route('/')
 @login_required
 def index():
-    db.session.refresh(current_user._get_current_object())
-    if current_user.perfil == 'colaborador':
+    colaborador_atual = db.session.get(Colaborador, current_user.id)
+    if colaborador_atual is None or colaborador_atual.perfil == 'colaborador':
         return render_template('painel/pessoal.html')
 
     hoje = date.today()
@@ -208,7 +208,7 @@ def index():
 
     # Filtro por equipe (só RH / diretoria podem escolher)
     equipe_filtro = request.args.get('equipe', 'todas')
-    if equipe_filtro != 'todas' and current_user.perfil in ('rh', 'diretoria'):
+    if equipe_filtro != 'todas' and colaborador_atual.perfil in ('rh', 'diretoria'):
         try:
             fid = int(equipe_filtro)
             if fid in equipe_ids:

@@ -1,3 +1,4 @@
+import importlib
 import os
 from flask import Flask, render_template
 from flask_sqlalchemy import SQLAlchemy
@@ -45,7 +46,7 @@ def create_app(config_name=None):
 
     if not app.config.get('TESTING') and not scheduler.running:
         scheduler.init_app(app)
-        import app.notificacoes.scheduler  # noqa: F401 — registra os jobs
+        importlib.import_module('app.notificacoes.scheduler')
         scheduler.start()
 
     from app.auth import auth as auth_blueprint
