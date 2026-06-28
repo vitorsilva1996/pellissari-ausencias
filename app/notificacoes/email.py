@@ -5,7 +5,7 @@ from flask import render_template
 from flask_mail import Message
 
 from app import mail
-from app.models import Colaborador, PeriodoAquisitivo
+from app.models import Colaborador
 
 log = logging.getLogger(__name__)
 

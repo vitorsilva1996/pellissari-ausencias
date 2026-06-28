@@ -64,13 +64,13 @@ def novo():
     equipes, gestores = _equipes_e_gestores()
 
     if request.method == 'POST':
-        nome       = request.form.get('nome', '').strip()
-        email      = request.form.get('email', '').strip().lower()
-        funcao     = request.form.get('funcao', '').strip()
-        equipe_id  = request.form.get('equipe_id', type=int)
-        gestor_id  = request.form.get('gestor_id', type=int) or None
+        nome = request.form.get('nome', '').strip()
+        email = request.form.get('email', '').strip().lower()
+        funcao = request.form.get('funcao', '').strip()
+        equipe_id = request.form.get('equipe_id', type=int)
+        gestor_id = request.form.get('gestor_id', type=int) or None
         admissao_s = request.form.get('data_admissao', '').strip()
-        perfil     = request.form.get('perfil', 'colaborador')
+        perfil = request.form.get('perfil', 'colaborador')
 
         erros = []
         if not nome:
@@ -174,11 +174,11 @@ def editar(id):
     equipes, gestores = _equipes_e_gestores()
 
     if request.method == 'POST':
-        nome       = request.form.get('nome', '').strip()
-        email      = request.form.get('email', '').strip().lower()
-        funcao     = request.form.get('funcao', '').strip()
-        equipe_id  = request.form.get('equipe_id', type=int)
-        gestor_id  = request.form.get('gestor_id', type=int) or None
+        nome = request.form.get('nome', '').strip()
+        email = request.form.get('email', '').strip().lower()
+        funcao = request.form.get('funcao', '').strip()
+        equipe_id = request.form.get('equipe_id', type=int)
+        gestor_id = request.form.get('gestor_id', type=int) or None
         admissao_s = request.form.get('data_admissao', '').strip()
         perfil_val = request.form.get('perfil', 'colaborador')
 
@@ -213,13 +213,13 @@ def editar(id):
                                    colab=colab, equipes=equipes, gestores=gestores,
                                    form=request.form)
 
-        colab.nome         = nome
-        colab.email        = email
-        colab.funcao       = funcao
-        colab.equipe_id    = equipe_id
-        colab.gestor_id    = gestor_id
+        colab.nome = nome
+        colab.email = email
+        colab.funcao = funcao
+        colab.equipe_id = equipe_id
+        colab.gestor_id = gestor_id
         colab.data_admissao = data_admissao
-        colab.perfil       = perfil_val
+        colab.perfil = perfil_val
         db.session.commit()
 
         flash('Dados atualizados com sucesso.', 'success')
@@ -315,14 +315,14 @@ def periodo_novo(id):
     else:
         sugestao_inicio = colab.data_admissao
 
-    sugestao_fim    = sugestao_inicio + relativedelta(years=1) - relativedelta(days=1)
+    sugestao_fim = sugestao_inicio + relativedelta(years=1) - relativedelta(days=1)
     sugestao_limite = sugestao_fim + relativedelta(months=11)
 
     if request.method == 'POST':
-        inicio_s  = request.form.get('data_inicio', '').strip()
-        fim_s     = request.form.get('data_fim', '').strip()
-        limite_s  = request.form.get('data_limite_saida', '').strip()
-        dias      = request.form.get('dias_direito', type=int, default=30)
+        inicio_s = request.form.get('data_inicio', '').strip()
+        fim_s = request.form.get('data_fim', '').strip()
+        limite_s = request.form.get('data_limite_saida', '').strip()
+        dias = request.form.get('dias_direito', type=int, default=30)
 
         erros = []
         data_inicio = data_fim = data_limite = None

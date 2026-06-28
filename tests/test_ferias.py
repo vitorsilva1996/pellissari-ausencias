@@ -2,7 +2,7 @@
 from datetime import date, timedelta
 
 from app import db
-from app.models import Ferias, PeriodoAquisitivo
+from app.models import Ferias
 
 
 def _data_futura(dias=10):

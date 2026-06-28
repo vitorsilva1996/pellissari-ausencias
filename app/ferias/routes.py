@@ -135,8 +135,9 @@ def solicitar():
 
         if erro:
             flash(erro, 'danger')
-            return render_template('ferias/solicitar.html', periodos=periodos_disponiveis,
-                           today=date.today().isoformat())
+            return render_template('ferias/solicitar.html',
+                                   periodos=periodos_disponiveis,
+                                   today=date.today().isoformat())
 
         data_retorno = data_inicio + timedelta(days=dias)
 
