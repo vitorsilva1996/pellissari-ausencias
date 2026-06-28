@@ -1,6 +1,6 @@
 from datetime import date, timedelta
 
-from flask import render_template, request, abort
+from flask import render_template, request, abort, send_file, Response
 from flask_login import login_required, current_user
 
 from app import db
@@ -248,4 +248,83 @@ def equipe(equipe_id):
         equipe_filtro=str(equipe_id),
         equipe_detalhe=eq,
         **dados,
+    )
+
+
+# ── Exportações ───────────────────────────────────────────────────────────────
+
+def _resolver_equipe_ids():
+    """Retorna (equipe_ids, equipe_label) com base no query param ?equipe=."""
+    colaborador_atual = db.session.get(Colaborador, current_user.id)
+    equipes = _equipes_visiveis()
+    equipe_ids = {e.id for e in equipes}
+    equipe_filtro = request.args.get('equipe', 'todas')
+
+    if equipe_filtro != 'todas' and colaborador_atual.perfil in ('rh', 'diretoria'):
+        try:
+            fid = int(equipe_filtro)
+            if fid in equipe_ids:
+                equipe_ids = {fid}
+                equipe_label = next(e.nome for e in equipes if e.id == fid)
+                return equipe_ids, equipe_label
+        except (ValueError, StopIteration):
+            pass
+
+    return equipe_ids, 'Todas as equipes'
+
+
+@painel.route('/exportar/pdf')
+@login_required
+def exportar_pdf():
+    colaborador_atual = db.session.get(Colaborador, current_user.id)
+    if colaborador_atual is None or colaborador_atual.perfil == 'colaborador':
+        abort(403)
+
+    from app.painel.relatorios import gerar_pdf_ferias
+    equipe_ids, equipe_label = _resolver_equipe_ids()
+    dados = _dados_painel(equipe_ids, date.today())
+
+    pdf = gerar_pdf_ferias(dados['colab_rows'], equipe_label)
+    return Response(
+        pdf,
+        mimetype='application/pdf',
+        headers={'Content-Disposition': 'attachment; filename=ferias.pdf'},
+    )
+
+
+@painel.route('/exportar/excel')
+@login_required
+def exportar_excel():
+    colaborador_atual = db.session.get(Colaborador, current_user.id)
+    if colaborador_atual is None or colaborador_atual.perfil == 'colaborador':
+        abort(403)
+
+    from app.painel.relatorios import gerar_excel_ferias
+    equipe_ids, equipe_label = _resolver_equipe_ids()
+    dados = _dados_painel(equipe_ids, date.today())
+
+    xlsx = gerar_excel_ferias(dados['colab_rows'], dados['alertas'], equipe_label)
+    return Response(
+        xlsx,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={'Content-Disposition': 'attachment; filename=ferias.xlsx'},
+    )
+
+
+@painel.route('/exportar/alertas/pdf')
+@login_required
+def exportar_alertas_pdf():
+    colaborador_atual = db.session.get(Colaborador, current_user.id)
+    if colaborador_atual is None or colaborador_atual.perfil == 'colaborador':
+        abort(403)
+
+    from app.painel.relatorios import gerar_pdf_alertas
+    equipe_ids, equipe_label = _resolver_equipe_ids()
+    dados = _dados_painel(equipe_ids, date.today())
+
+    pdf = gerar_pdf_alertas(dados['alertas'], equipe_label)
+    return Response(
+        pdf,
+        mimetype='application/pdf',
+        headers={'Content-Disposition': 'attachment; filename=alertas.pdf'},
     )
