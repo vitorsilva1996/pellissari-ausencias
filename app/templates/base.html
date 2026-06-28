@@ -123,8 +123,14 @@
             </li>
             <li><hr class="dropdown-divider my-1"></li>
             <li>
-              <a class="dropdown-item small" href="{{ url_for('colaboradores.perfil', id=current_user.id) }}">
+              <a class="dropdown-item small {% if request.blueprint == 'perfil' %}active{% endif %}"
+                 href="{{ url_for('perfil.index') }}">
                 Meu perfil
+              </a>
+            </li>
+            <li>
+              <a class="dropdown-item small" href="{{ url_for('perfil.index') }}#alterar-senha">
+                Alterar senha
               </a>
             </li>
             <li><hr class="dropdown-divider my-1"></li>

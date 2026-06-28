@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+{% block title %}Meu Perfil{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold mb-0">Meu perfil</h2>
+        <p class="text-muted small mb-0">Visualize seus dados e gerencie sua senha</p>
+    </div>
+</div>
+
+<div class="row g-4">
+
+    {# ── Dados do colaborador ── #}
+    <div class="col-lg-5">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body p-4">
+                {# Avatar / inicial #}
+                <div class="d-flex align-items-center gap-3 mb-4">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white fs-4"
+                         style="width:64px;height:64px;background:#C0392B;flex-shrink:0">
+                        {{ colaborador.nome[0] | upper }}
+                    </div>
+                    <div>
+                        <div class="fw-bold fs-5">{{ colaborador.nome }}</div>
+                        <div class="text-muted small">{{ colaborador.funcao }}</div>
+                        <span class="badge mt-1"
+                              style="background:#C0392B;font-size:.7rem">
+                            {{ colaborador.perfil | upper }}
+                        </span>
+                    </div>
+                </div>
+
+                <hr class="my-3">
+
+                <dl class="row mb-0" style="row-gap:.75rem">
+                    <dt class="col-5 text-muted small fw-normal">E-mail</dt>
+                    <dd class="col-7 mb-0 small fw-semibold">{{ colaborador.email }}</dd>
+
+                    <dt class="col-5 text-muted small fw-normal">Equipe</dt>
+                    <dd class="col-7 mb-0 small fw-semibold">
+                        {{ colaborador.equipe.nome if colaborador.equipe else '—' }}
+                    </dd>
+
+                    <dt class="col-5 text-muted small fw-normal">Gestor</dt>
+                    <dd class="col-7 mb-0 small fw-semibold">
+                        {{ colaborador.gestor.nome if colaborador.gestor else '—' }}
+                    </dd>
+
+                    <dt class="col-5 text-muted small fw-normal">Admissão</dt>
+                    <dd class="col-7 mb-0 small fw-semibold">
+                        {{ colaborador.data_admissao | data_br }}
+                    </dd>
+
+                    <dt class="col-5 text-muted small fw-normal">Situação</dt>
+                    <dd class="col-7 mb-0">
+                        {% if colaborador.ativo %}
+                        <span class="badge bg-success-subtle text-success border border-success-subtle">Ativo</span>
+                        {% else %}
+                        <span class="badge bg-secondary-subtle text-secondary border">Inativo</span>
+                        {% endif %}
+                    </dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    {# ── Alterar senha ── #}
+    <div class="col-lg-7">
+        <div class="card border-0 shadow-sm" id="alterar-senha">
+            <div class="card-header bg-white border-0 pt-4 pb-0">
+                <h6 class="fw-bold mb-0">Alterar senha</h6>
+                <p class="text-muted small mb-0 mt-1">A nova senha deve ter pelo menos 6 caracteres</p>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST" action="{{ url_for('perfil.index') }}#alterar-senha"
+                      novalidate autocomplete="off">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold small">Senha atual</label>
+                        <input type="password" name="senha_atual" class="form-control"
+                               autocomplete="current-password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold small">Nova senha</label>
+                        <input type="password" name="nova_senha" class="form-control"
+                               autocomplete="new-password" required minlength="6"
+                               id="novaSenha">
+                        <div class="form-text">Mínimo 6 caracteres</div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold small">Confirmar nova senha</label>
+                        <input type="password" name="confirmar_senha" class="form-control"
+                               autocomplete="new-password" required id="confirmarSenha">
+                    </div>
+                    <button type="submit" class="btn text-white fw-semibold px-4"
+                            style="background:#C0392B;border-color:#C0392B">
+                        Salvar nova senha
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        {# ── Períodos aquisitivos ── #}
+        {% if colaborador.periodos_aquisitivos %}
+        <div class="card border-0 shadow-sm mt-4">
+            <div class="card-header bg-white border-0 pt-4 pb-0">
+                <h6 class="fw-bold mb-0">Meus períodos aquisitivos</h6>
+            </div>
+            <div class="card-body pb-2">
+                {% for p in colaborador.periodos_aquisitivos | sort(attribute='data_inicio', reverse=True) %}
+                {% set usados = p.dias_usados() %}
+                {% set pct = [100, (usados / p.dias_direito * 100) | int] | min if p.dias_direito else 0 %}
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between small mb-1">
+                        <span class="text-muted">
+                            {{ p.data_inicio.strftime('%d/%m/%Y') }} – {{ p.data_fim.strftime('%d/%m/%Y') }}
+                        </span>
+                        <span class="fw-semibold">
+                            {{ usados }}/{{ p.dias_direito }} dias utilizados
+                        </span>
+                    </div>
+                    <div class="progress" style="height:8px;border-radius:4px">
+                        <div class="progress-bar
+                            {% if pct >= 100 %}bg-success
+                            {% elif pct >= 60 %}bg-primary
+                            {% else %}bg-warning{% endif %}"
+                             style="width:{{ pct }}%;border-radius:4px">
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between" style="margin-top:3px">
+                        <span class="text-muted" style="font-size:.72rem">
+                            Limite: {{ p.data_limite_saida.strftime('%d/%m/%Y') }}
+                        </span>
+                        <span class="text-muted" style="font-size:.72rem">
+                            {{ p.dias_restantes() }} dias restantes
+                        </span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

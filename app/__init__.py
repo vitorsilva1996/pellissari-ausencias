@@ -1,6 +1,8 @@
 import importlib
 import os
-from flask import Flask, render_template
+from datetime import datetime, timedelta
+
+from flask import Flask, redirect, render_template, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
@@ -56,6 +58,7 @@ def create_app(config_name=None):
     from app.calendario import calendario as calendario_blueprint
     from app.painel import painel as painel_blueprint
     from app.notificacoes import notificacoes as notif_blueprint
+    from app.perfil import perfil as perfil_blueprint
 
     app.register_blueprint(auth_blueprint)
     app.register_blueprint(colab_blueprint, url_prefix='/colaboradores')
@@ -64,9 +67,9 @@ def create_app(config_name=None):
     app.register_blueprint(calendario_blueprint, url_prefix='/calendario')
     app.register_blueprint(painel_blueprint, url_prefix='/painel')
     app.register_blueprint(notif_blueprint, url_prefix='/notificacoes')
+    app.register_blueprint(perfil_blueprint, url_prefix='/perfil')
 
-    # ── Global timedelta para templates de e-mail ─────────────────────────────
-    from datetime import timedelta
+    # ── Globals Jinja ─────────────────────────────────────────────────────────
     app.jinja_env.globals['timedelta'] = timedelta
 
     # ── Filtro de data em português ──────────────────────────────────────────
@@ -81,9 +84,9 @@ def create_app(config_name=None):
             return ''
         return f'{d.day} de {_MESES_BR[d.month]} de {d.year}'
 
-    # ── Context processor: notificações não lidas ─────────────────────────────
+    # ── Context processor ─────────────────────────────────────────────────────
     @app.context_processor
-    def injetar_notificacoes():
+    def injetar_contexto():
         from flask_login import current_user
         from app.models import Notificacao
         count = 0
@@ -91,10 +94,23 @@ def create_app(config_name=None):
             count = Notificacao.query.filter_by(
                 colaborador_id=current_user.id, lida=0
             ).count()
-        return {'notificacoes_nao_lidas': count}
+        return {
+            'notificacoes_nao_lidas': count,
+            'now': datetime.utcnow(),
+        }
 
+    # ── Rota raiz ─────────────────────────────────────────────────────────────
     @app.route('/')
     def index():
-        return render_template('index.html')
+        return redirect(url_for('painel.index'))
+
+    # ── Handlers de erro ──────────────────────────────────────────────────────
+    @app.errorhandler(404)
+    def pagina_nao_encontrada(e):
+        return render_template('404.html'), 404
+
+    @app.errorhandler(500)
+    def erro_interno(e):
+        return render_template('500.html'), 500
 
     return app

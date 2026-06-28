@@ -68,6 +68,62 @@
 </div>
 {% endif %}
 
+{# ── Meus períodos aquisitivos ── #}
+{% if periodos_info %}
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white border-0 pt-3 pb-0">
+        <h6 class="fw-semibold mb-0">Meus períodos aquisitivos</h6>
+    </div>
+    <div class="card-body pb-2">
+        <div class="row g-3">
+        {% for pi in periodos_info %}
+        {% set p = pi.periodo %}
+        <div class="col-md-6">
+            <div class="rounded-3 p-3 border
+                {% if pi.vencido %}border-danger bg-danger-subtle
+                {% elif pi.dias_limite <= 60 %}border-warning bg-warning-subtle
+                {% else %}bg-light border-0{% endif %}">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <div class="fw-semibold small">
+                            {{ p.data_inicio.strftime('%d/%m/%Y') }} – {{ p.data_fim.strftime('%d/%m/%Y') }}
+                        </div>
+                        <div class="text-muted" style="font-size:.75rem">
+                            Limite: {{ p.data_limite_saida.strftime('%d/%m/%Y') }}
+                            {% if pi.vencido %}<span class="text-danger fw-semibold ms-1">Vencido</span>
+                            {% elif pi.dias_limite <= 60 %}<span class="text-warning-emphasis fw-semibold ms-1">{{ pi.dias_limite }}d</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="text-end flex-shrink-0 ms-2">
+                        <div class="fw-bold fs-5 lh-1
+                            {% if pi.restantes == 0 %}text-success
+                            {% elif pi.vencido %}text-danger
+                            {% endif %}">{{ pi.restantes }}</div>
+                        <div class="text-muted" style="font-size:.7rem">dias restantes</div>
+                    </div>
+                </div>
+                <div class="progress mb-1" style="height:6px;border-radius:3px">
+                    <div class="progress-bar
+                        {% if pi.pct >= 100 %}bg-success
+                        {% elif pi.vencido %}bg-danger
+                        {% elif pi.dias_limite <= 60 %}bg-warning
+                        {% else %}bg-primary{% endif %}"
+                         style="width:{{ pi.pct }}%;border-radius:3px">
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between" style="font-size:.7rem;color:#6c757d">
+                    <span>{{ pi.usados }}/{{ p.dias_direito }} dias utilizados</span>
+                    <span>{{ pi.pct }}%</span>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
 {# ── Minhas solicitações ── #}
 <div class="card border-0 shadow-sm">
     <div class="card-header bg-white border-0 pt-3 pb-0">

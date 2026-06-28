@@ -80,7 +80,31 @@ def index():
             q = q.filter(Ferias.status.in_(['aguardando_gestor', 'aguardando_rh']))
         pendentes = q.order_by(Ferias.solicitado_em.asc()).all()
 
-    return render_template('ferias/index.html', minhas=minhas, pendentes=pendentes)
+    hoje = date.today()
+    periodos = (
+        PeriodoAquisitivo.query
+        .filter_by(colaborador_id=current_user.id)
+        .order_by(PeriodoAquisitivo.data_inicio.desc())
+        .all()
+    )
+    periodos_info = []
+    for p in periodos:
+        usados = p.dias_usados()
+        restantes = p.dias_restantes()
+        pct = min(100, int(usados / p.dias_direito * 100)) if p.dias_direito else 0
+        periodos_info.append({
+            'periodo': p,
+            'usados': usados,
+            'restantes': restantes,
+            'pct': pct,
+            'vencido': p.data_limite_saida < hoje,
+            'dias_limite': (p.data_limite_saida - hoje).days,
+        })
+
+    return render_template('ferias/index.html',
+                           minhas=minhas,
+                           pendentes=pendentes,
+                           periodos_info=periodos_info)
 
 
 # ── Solicitação ───────────────────────────────────────────────────────────────

@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block title %}Página não encontrada{% endblock %}
+
+{% block content %}
+<div class="text-center py-5 mt-4">
+    <div class="display-1 fw-black mb-0" style="font-size:7rem;color:#dee2e6;line-height:1">404</div>
+    <h2 class="fw-bold mt-2 mb-2">Página não encontrada</h2>
+    <p class="text-muted mb-4" style="max-width:380px;margin:0 auto">
+        O endereço que você tentou acessar não existe ou foi movido.
+    </p>
+    <div class="d-flex justify-content-center gap-2">
+        {% if current_user.is_authenticated %}
+        <a href="{{ url_for('painel.index') }}" class="btn btn-primary">
+            Voltar ao painel
+        </a>
+        {% else %}
+        <a href="{{ url_for('auth.login') }}" class="btn btn-primary">
+            Ir para o login
+        </a>
+        {% endif %}
+        <button onclick="history.back()" class="btn btn-outline-secondary">
+            Página anterior
+        </button>
+    </div>
+</div>
+{% endblock %}

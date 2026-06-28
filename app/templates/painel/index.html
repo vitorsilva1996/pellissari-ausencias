@@ -118,39 +118,57 @@
 <div class="row g-3 mb-4">
     <div class="col-6 col-md-3">
         <div class="card border-0 shadow-sm indicator-card azul h-100">
-            <div class="card-body">
-                <div class="text-muted small mb-1">Colaboradores</div>
-                <div class="display-6 fw-bold">{{ totais.colaboradores }}</div>
-                <div class="text-muted small">ativos no período</div>
+            <div class="card-body d-flex align-items-start gap-3">
+                <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+                     style="width:44px;height:44px;background:#dbeafe;font-size:1.3rem">👥</div>
+                <div>
+                    <div class="text-muted small mb-1">Colaboradores</div>
+                    <div class="display-6 fw-bold lh-1">{{ totais.colaboradores }}</div>
+                    <div class="text-muted small mt-1">ativos no período</div>
+                </div>
             </div>
         </div>
     </div>
     <div class="col-6 col-md-3">
         <div class="card border-0 shadow-sm indicator-card verde h-100">
-            <div class="card-body">
-                <div class="text-muted small mb-1">Férias aprovadas</div>
-                <div class="display-6 fw-bold text-success">{{ totais.ferias_aprovadas }}</div>
-                <div class="text-muted small">vigentes ou futuras</div>
+            <div class="card-body d-flex align-items-start gap-3">
+                <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+                     style="width:44px;height:44px;background:#d1fae5;font-size:1.3rem">✅</div>
+                <div>
+                    <div class="text-muted small mb-1">Férias aprovadas</div>
+                    <div class="display-6 fw-bold lh-1 text-success">{{ totais.ferias_aprovadas }}</div>
+                    <div class="text-muted small mt-1">vigentes ou futuras</div>
+                </div>
             </div>
         </div>
     </div>
     <div class="col-6 col-md-3">
         <div class="card border-0 shadow-sm indicator-card amarelo h-100">
-            <div class="card-body">
-                <div class="text-muted small mb-1">Pendentes</div>
-                <div class="display-6 fw-bold text-warning">{{ totais.pendentes }}</div>
-                <div class="text-muted small">aguardando aprovação</div>
+            <div class="card-body d-flex align-items-start gap-3">
+                <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+                     style="width:44px;height:44px;background:#fef9c3;font-size:1.3rem">⏳</div>
+                <div>
+                    <div class="text-muted small mb-1">Pendentes</div>
+                    <div class="display-6 fw-bold lh-1 {% if totais.pendentes > 0 %}text-warning{% endif %}">
+                        {{ totais.pendentes }}
+                    </div>
+                    <div class="text-muted small mt-1">aguardando aprovação</div>
+                </div>
             </div>
         </div>
     </div>
     <div class="col-6 col-md-3">
         <div class="card border-0 shadow-sm indicator-card vermelho h-100">
-            <div class="card-body">
-                <div class="text-muted small mb-1">Vencidos / Atenção</div>
-                <div class="display-6 fw-bold {% if totais.vencidos_atencao > 0 %}text-danger{% endif %}">
-                    {{ totais.vencidos_atencao }}
+            <div class="card-body d-flex align-items-start gap-3">
+                <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+                     style="width:44px;height:44px;background:#fee2e2;font-size:1.3rem">⚠️</div>
+                <div>
+                    <div class="text-muted small mb-1">Vencidos / Atenção</div>
+                    <div class="display-6 fw-bold lh-1 {% if totais.vencidos_atencao > 0 %}text-danger{% endif %}">
+                        {{ totais.vencidos_atencao }}
+                    </div>
+                    <div class="text-muted small mt-1">colaboradores em risco</div>
                 </div>
-                <div class="text-muted small">colaboradores em risco</div>
             </div>
         </div>
     </div>
