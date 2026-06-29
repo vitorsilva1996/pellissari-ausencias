@@ -105,7 +105,7 @@ with app.app_context():
     kleber = get_ou_criar_colaborador(
         nome='Kleber Pedroso',
         email='kleber.pedroso@pellissari.com.br',
-        funcao='Gestor de TI',
+        funcao='GESTOR DE TI',
         equipe=eq_debian,
         admissao=date(2025, 3, 25),
         perfil='gestor',
@@ -114,7 +114,7 @@ with app.app_context():
     adilson = get_ou_criar_colaborador(
         nome='Adilson Ferreira',
         email='adilson.ferreira@pellissari.com.br',
-        funcao='Gestor de TI',
+        funcao='GESTOR DE TI',
         equipe=eq_kali,
         admissao=date(2024, 1, 1),
         perfil='gestor',
@@ -126,7 +126,7 @@ with app.app_context():
     marco = get_ou_criar_colaborador(
         nome='Marco Aurelio',
         email='marco.aurelio@pellissari.com.br',
-        funcao='Especialista em TI',
+        funcao='ESPECIALISTA EM TI',
         equipe=eq_debian,
         admissao=date(2024, 9, 2),
         perfil='colaborador',
@@ -136,7 +136,7 @@ with app.app_context():
     tarcisio = get_ou_criar_colaborador(
         nome='Tarcisio Mazur',
         email='tarcisio.mazur@pellissari.com.br',
-        funcao='Técnico em TI',
+        funcao='TÉCNICO EM TI',
         equipe=eq_debian,
         admissao=date(2024, 7, 4),
         perfil='colaborador',
@@ -146,7 +146,7 @@ with app.app_context():
     breno = get_ou_criar_colaborador(
         nome='Breno Macyszyn',
         email='breno.macyszyn@pellissari.com.br',
-        funcao='Técnico em TI',
+        funcao='TÉCNICO EM TI',
         equipe=eq_kali,
         admissao=date(2024, 3, 6),
         perfil='colaborador',

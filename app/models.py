@@ -43,6 +43,14 @@ class Colaborador(UserMixin, db.Model):
     dayoffs = db.relationship('DayOff', back_populates='colaborador', lazy='dynamic')
     notificacoes = db.relationship('Notificacao', back_populates='colaborador', lazy='dynamic')
 
+    @staticmethod
+    def normalizar_nome(v):
+        return v.strip().title() if v else v
+
+    @staticmethod
+    def normalizar_funcao(v):
+        return v.strip().upper() if v else v
+
     def set_senha(self, senha):
         self.senha_hash = bcrypt.generate_password_hash(senha).decode('utf-8')
 

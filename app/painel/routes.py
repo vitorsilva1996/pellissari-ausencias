@@ -172,6 +172,50 @@ def _dados_painel(equipe_ids, hoje):
         Ferias.data_retorno >= hoje,
     ).count()
 
+    # ── Resumo por equipe ────────────────────────────────────────────────────
+    _eq_map = {}
+    for row in colab_rows:
+        eq = row['colaborador'].equipe
+        if eq.id not in _eq_map:
+            _eq_map[eq.id] = {'nome': eq.nome, 'total': 0, 'ok': 0, 'atencao': 0, 'vencido': 0}
+        _eq_map[eq.id]['total'] += 1
+        s = row['status']
+        if s == 'vencido':
+            _eq_map[eq.id]['vencido'] += 1
+        elif s == 'atencao':
+            _eq_map[eq.id]['atencao'] += 1
+        else:
+            _eq_map[eq.id]['ok'] += 1
+    resumo_equipes = sorted(_eq_map.values(), key=lambda x: x['nome'])
+
+    # ── Alertas críticos unificados (vencidos + atenção ≤60d) ───────────────
+    alertas_criticos = sorted(
+        alertas_vencidos + alertas_30 + alertas_60,
+        key=lambda a: a['dias_limite'],
+    )
+
+    # ── Pendentes unificados para o dashboard ────────────────────────────────
+    pendentes_aprovacao = []
+    for f in pendentes_ferias:
+        pendentes_aprovacao.append({
+            'tipo': 'ferias',
+            'colaborador': f.colaborador,
+            'data': f.data_inicio,
+            'status': f.status,
+            'id': f.id,
+            'dias': f.dias,
+        })
+    for d in pendentes_dayoff:
+        pendentes_aprovacao.append({
+            'tipo': 'dayoff',
+            'colaborador': d.colaborador,
+            'data': d.data_solicitada,
+            'status': d.status,
+            'id': d.id,
+            'dias': 1,
+        })
+    pendentes_aprovacao.sort(key=lambda x: x['data'])
+
     return dict(
         colab_rows=colab_rows,
         totais=dict(
@@ -179,6 +223,7 @@ def _dados_painel(equipe_ids, hoje):
             ferias_aprovadas=ferias_aprovadas,
             pendentes=len(pendentes_ferias) + len(pendentes_dayoff),
             vencidos_atencao=n_vencidos_atencao,
+            dayoff_sem_solicitacao=len(dayoff_sem_solicitacao),
         ),
         alertas=dict(
             vencidos=alertas_vencidos,
@@ -186,6 +231,9 @@ def _dados_painel(equipe_ids, hoje):
             dias_60=alertas_60,
             dias_90=alertas_90,
         ),
+        alertas_criticos=alertas_criticos,
+        resumo_equipes=resumo_equipes,
+        pendentes_aprovacao=pendentes_aprovacao,
         pendentes_ferias=pendentes_ferias,
         pendentes_dayoff=pendentes_dayoff,
         dayoff_sem_solicitacao=dayoff_sem_solicitacao,
@@ -247,6 +295,35 @@ def equipe(equipe_id):
         equipes=equipes,
         equipe_filtro=str(equipe_id),
         equipe_detalhe=eq,
+        **dados,
+    )
+
+
+@painel.route('/colaboradores')
+@login_required
+def colaboradores():
+    colaborador_atual = db.session.get(Colaborador, current_user.id)
+    if colaborador_atual is None or colaborador_atual.perfil == 'colaborador':
+        abort(403)
+
+    hoje = date.today()
+    equipes = _equipes_visiveis()
+    equipe_ids = {e.id for e in equipes}
+
+    equipe_filtro = request.args.get('equipe', 'todas')
+    if equipe_filtro != 'todas' and colaborador_atual.perfil in ('rh', 'diretoria'):
+        try:
+            fid = int(equipe_filtro)
+            if fid in equipe_ids:
+                equipe_ids = {fid}
+        except ValueError:
+            pass
+
+    dados = _dados_painel(equipe_ids, hoje)
+    return render_template(
+        'painel/colaboradores.html',
+        equipes=equipes,
+        equipe_filtro=equipe_filtro,
         **dados,
     )
 

@@ -26,7 +26,7 @@ with app.app_context():
         nome='Vitor Silva',
         email='vitor@pellissari.com.br',
         data_admissao=date.today(),
-        funcao='Administrador',
+        funcao='ADMINISTRADOR',
         equipe_id=1,
         perfil='rh',
         ativo=1,

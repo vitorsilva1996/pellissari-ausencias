@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+{% block title %}Status por Colaborador{% endblock %}
+
+{# ── Macros de badge ── #}
+{% macro badge_ferias(status) %}
+  {% if status == 'concluido' %}
+    <span class="badge bg-success">Concluído</span>
+  {% elif status == 'programado' %}
+    <span class="badge" style="background:#2563eb">Programado</span>
+  {% elif status == 'pendente' %}
+    <span class="badge bg-secondary">Pendente</span>
+  {% elif status == 'atencao' %}
+    <span class="badge" style="background:#D97706">Atenção</span>
+  {% elif status == 'vencido' %}
+    <span class="badge" style="background:#C0392B">Vencido</span>
+  {% else %}
+    <span class="badge bg-light text-muted border">—</span>
+  {% endif %}
+{% endmacro %}
+
+{% block content %}
+<style>
+  body { background: #F4F4F5 !important; }
+  .page-title { font-size: 22px; font-weight: 700; color: #111827; }
+  .page-sub   { font-size: 13px; color: #6B7280; }
+  .p-card {
+    background: #fff; border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    border: 1px solid #E5E7EB;
+  }
+  .form-select-sm:focus { border-color: #C0392B; box-shadow: 0 0 0 .15rem rgba(192,57,43,.15); }
+  .table thead th { font-size: 12px; font-weight: 600; color: #6B7280;
+                    text-transform: uppercase; letter-spacing: .04em; }
+  .table tbody td { font-size: 13px; vertical-align: middle; }
+</style>
+
+{# ── Header ── #}
+<div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-4">
+  <div>
+    <div class="mb-1">
+      <a href="{{ url_for('painel.index') }}" class="text-muted small text-decoration-none">
+        ← Painel
+      </a>
+    </div>
+    <h1 class="page-title mb-1">Status por colaborador</h1>
+    <p class="page-sub mb-0">{{ hoje | data_br }}</p>
+  </div>
+  <div class="d-flex align-items-center gap-2 flex-wrap">
+
+    {% if equipes | length > 1 %}
+    <form method="get" action="{{ url_for('painel.colaboradores') }}" class="mb-0">
+      <select name="equipe" class="form-select form-select-sm"
+              style="min-width:180px" onchange="this.form.submit()">
+        <option value="todas" {% if equipe_filtro == 'todas' %}selected{% endif %}>Todas as equipes</option>
+        {% for eq in equipes %}
+        <option value="{{ eq.id }}" {% if equipe_filtro == eq.id|string %}selected{% endif %}>{{ eq.nome }}</option>
+        {% endfor %}
+      </select>
+    </form>
+    {% endif %}
+
+    <div class="dropdown">
+      <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+              data-bs-toggle="dropdown">Exportar</button>
+      <ul class="dropdown-menu dropdown-menu-end">
+        <li>
+          <a class="dropdown-item" href="{{ url_for('painel.exportar_pdf', equipe=equipe_filtro) }}">
+            PDF — Status de férias
+          </a>
+        </li>
+        <li>
+          <a class="dropdown-item" href="{{ url_for('painel.exportar_excel', equipe=equipe_filtro) }}">
+            Excel — Status + alertas
+          </a>
+        </li>
+        {% set tem_alerta = alertas.vencidos or alertas.dias_30 or alertas.dias_60 %}
+        {% if tem_alerta %}
+        <li><hr class="dropdown-divider"></li>
+        <li>
+          <a class="dropdown-item text-danger"
+             href="{{ url_for('painel.exportar_alertas_pdf', equipe=equipe_filtro) }}">
+            PDF — Alertas
+          </a>
+        </li>
+        {% endif %}
+      </ul>
+    </div>
+
+  </div>
+</div>
+
+{# ── Legenda ── #}
+<div class="d-flex flex-wrap gap-2 mb-3 small text-muted align-items-center">
+  <span>Legenda:</span>
+  {{ badge_ferias('concluido') }} Todos os dias gozados &nbsp;
+  {{ badge_ferias('programado') }} Aprovadas futuras &nbsp;
+  {{ badge_ferias('pendente') }} Sem programação (dentro do prazo) &nbsp;
+  {{ badge_ferias('atencao') }} Limite em até 60 dias &nbsp;
+  {{ badge_ferias('vencido') }} Limite expirado
+</div>
+
+{# ── Tabela ── #}
+<div class="p-card">
+  {% if not colab_rows %}
+  <div class="p-4 text-center text-muted">
+    <div style="font-size:2rem">👥</div>
+    <p class="mb-0 mt-2">Nenhum colaborador encontrado.</p>
+  </div>
+  {% else %}
+  <div class="table-responsive">
+    <table class="table table-hover mb-0 align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>Colaborador</th>
+          <th>Equipe</th>
+          <th>Período aquisitivo</th>
+          <th class="text-center">Dias restantes</th>
+          <th>Limite de saída</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in colab_rows %}
+        {% set pp = row.periodo_princ %}
+        <tr class="{% if row.status == 'vencido' %}table-danger{% elif row.status == 'atencao' %}table-warning{% endif %}">
+          <td class="fw-semibold">{{ row.colaborador.nome }}</td>
+          <td class="text-muted">{{ row.colaborador.equipe.nome }}</td>
+
+          {% if pp %}
+          <td class="text-muted">
+            {{ pp.periodo.data_inicio.strftime('%d/%m/%Y') }}
+            –
+            {{ pp.periodo.data_fim.strftime('%d/%m/%Y') }}
+          </td>
+          <td class="text-center fw-semibold">
+            {% if pp.restantes > 0 %}
+            <span class="{% if row.status in ('vencido','atencao') %}text-danger{% endif %}">
+              {{ pp.restantes }}
+            </span>
+            {% else %}
+            <span class="text-success">✓</span>
+            {% endif %}
+          </td>
+          <td class="{% if row.status == 'vencido' %}text-danger fw-semibold{% elif row.status == 'atencao' %}text-warning-emphasis{% endif %}">
+            {{ pp.periodo.data_limite_saida.strftime('%d/%m/%Y') }}
+            {% if row.status == 'vencido' %}
+            <span class="text-danger" style="font-size:11px">({{ pp.dias_limite | abs }}d atraso)</span>
+            {% elif row.status == 'atencao' %}
+            <span class="text-muted" style="font-size:11px">({{ pp.dias_limite }}d)</span>
+            {% endif %}
+          </td>
+          {% else %}
+          <td colspan="3" class="text-muted">Sem período aquisitivo cadastrado</td>
+          {% endif %}
+
+          <td>{{ badge_ferias(row.status) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

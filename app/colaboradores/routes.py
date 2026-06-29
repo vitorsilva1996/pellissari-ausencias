@@ -64,9 +64,9 @@ def novo():
     equipes, gestores = _equipes_e_gestores()
 
     if request.method == 'POST':
-        nome = request.form.get('nome', '').strip()
+        nome = request.form.get('nome', '').strip().title()
         email = request.form.get('email', '').strip().lower()
-        funcao = request.form.get('funcao', '').strip()
+        funcao = request.form.get('funcao', '').strip().upper()
         equipe_id = request.form.get('equipe_id', type=int)
         gestor_id = request.form.get('gestor_id', type=int) or None
         admissao_s = request.form.get('data_admissao', '').strip()
@@ -174,9 +174,9 @@ def editar(id):
     equipes, gestores = _equipes_e_gestores()
 
     if request.method == 'POST':
-        nome = request.form.get('nome', '').strip()
+        nome = request.form.get('nome', '').strip().title()
         email = request.form.get('email', '').strip().lower()
-        funcao = request.form.get('funcao', '').strip()
+        funcao = request.form.get('funcao', '').strip().upper()
         equipe_id = request.form.get('equipe_id', type=int)
         gestor_id = request.form.get('gestor_id', type=int) or None
         admissao_s = request.form.get('data_admissao', '').strip()

@@ -1,0 +1,132 @@
+/* ── Pellissari – Identidade Visual ── */
+:root {
+  --pell-red:      #C0392B;
+  --pell-red-dark: #A93226;
+  --pell-black:    #1A1A1A;
+  --pell-bg:       #FAFAFA;
+  --pell-card-shadow: 0 2px 8px rgba(0,0,0,.08);
+}
+
+/* ── Body ── */
+body {
+  background: var(--pell-bg) !important;
+}
+
+/* ── Cards com fundo branco puro ── */
+.card {
+  background-color: #FFFFFF !important;
+}
+
+/* ── Headings ── */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--pell-black);
+}
+
+/* ── Navbar ── */
+.navbar.navbar-pellissari {
+  background: var(--pell-black) !important;
+}
+
+.navbar.navbar-pellissari .navbar-brand img {
+  filter: brightness(0) invert(1);
+}
+
+.navbar.navbar-pellissari .navbar-nav .nav-link {
+  color: rgba(255,255,255,.8);
+  transition: color .15s;
+}
+
+.navbar.navbar-pellissari .navbar-nav .nav-link:hover:not(.active) {
+  color: #fff !important;
+}
+
+.navbar.navbar-pellissari .navbar-nav .nav-link.active {
+  color: #fff !important;
+  font-weight: 600;
+  border-bottom: 2px solid var(--pell-red);
+  background: transparent;
+  border-radius: 0;
+}
+
+/* Badge de perfil no dropdown do usuário */
+.navbar.navbar-pellissari .badge.bg-light {
+  color: var(--pell-red) !important;
+}
+
+/* ── Botões primários ── */
+.btn-primary {
+  background-color: var(--pell-red) !important;
+  border-color: var(--pell-red) !important;
+}
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:active {
+  background-color: var(--pell-red-dark) !important;
+  border-color: var(--pell-red-dark) !important;
+}
+
+.btn-outline-primary {
+  color: var(--pell-red) !important;
+  border-color: var(--pell-red) !important;
+}
+.btn-outline-primary:hover {
+  background-color: var(--pell-red) !important;
+  border-color: var(--pell-red) !important;
+  color: #fff !important;
+}
+
+/* active state nos botões de filtro do painel */
+.btn-primary.active,
+a.btn-primary {
+  background-color: var(--pell-red) !important;
+  border-color: var(--pell-red) !important;
+  color: #fff !important;
+}
+
+/* ── Cards ── */
+.card {
+  border: 1px solid rgba(0,0,0,.07) !important;
+  box-shadow: var(--pell-card-shadow) !important;
+}
+
+/* ── Cards de indicadores – borda lateral ── */
+.indicator-card.azul {
+  border-left: 4px solid var(--pell-red) !important;
+}
+
+/* Ícone de fundo do card "Colaboradores" combina com vermelho */
+.indicator-card.azul .rounded-3[style*="dbeafe"] {
+  background: #fde8e6 !important;
+}
+
+/* ── Badges de status – mantém cores originais ── */
+/* (bg-success, bg-warning, bg-danger, bg-secondary, bg-info permanecem Bootstrap) */
+
+/* ── Dropdown ativo no perfil ── */
+.dropdown-item.active,
+.dropdown-item:active {
+  background-color: var(--pell-red);
+}
+
+/* ── Links de texto ── */
+a {
+  color: var(--pell-red);
+}
+a:hover {
+  color: var(--pell-red-dark);
+}
+
+/* Links especiais que precisam manter cor padrão */
+.nav-link,
+.dropdown-item,
+.text-muted a,
+.btn {
+  color: inherit;
+}
+
+/* ── Focus nos inputs ── */
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--pell-red);
+  box-shadow: 0 0 0 .2rem rgba(192,57,43,.2);
+}
