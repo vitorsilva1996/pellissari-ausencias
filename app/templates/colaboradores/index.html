@@ -63,13 +63,9 @@
                     <td class="small">{{ c.funcao }}</td>
                     <td class="small">{{ c.data_admissao.strftime('%d/%m/%Y') }}</td>
                     <td>
-                        <span class="badge
-                            {% if c.perfil == 'rh' %}bg-purple
-                            {% elif c.perfil == 'diretoria' %}bg-dark
-                            {% elif c.perfil == 'gestor' %}bg-info text-dark
-                            {% else %}bg-secondary{% endif %}"
-                            style="{% if c.perfil == 'rh' %}background:#6f42c1{% endif %}">
-                            {{ c.perfil_obj.nome if c.perfil_obj else c.perfil | capitalize }}
+                        {% set pb = perfil_badge(c) %}
+                        <span class="badge {{ pb.classe }}" style="{{ pb.estilo }}">
+                            {{ pb.nome }}
                         </span>
                     </td>
                     <td class="text-center">

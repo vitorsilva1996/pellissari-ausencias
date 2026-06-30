@@ -107,7 +107,7 @@ def create_app(config_name=None):
     def injetar_contexto():
         from flask_login import current_user
         from app.models import Notificacao
-        from app.auth.permissions import has_permission
+        from app.auth.permissions import has_permission, perfil_badge
         count = 0
         if current_user.is_authenticated:
             count = Notificacao.query.filter_by(
@@ -117,6 +117,7 @@ def create_app(config_name=None):
             'notificacoes_nao_lidas': count,
             'now': datetime.utcnow(),
             'has_permission': has_permission,
+            'perfil_badge': perfil_badge,
         }
 
     # ── Rota raiz ─────────────────────────────────────────────────────────────

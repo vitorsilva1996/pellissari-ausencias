@@ -88,3 +88,27 @@ def usuarios_com_permissao(codigo: str) -> list:
         c for c in Colaborador.query.filter_by(ativo=1).all()
         if has_permission(c, codigo)
     ]
+
+
+_CORES_PERFIL_PADRAO = {
+    'rh':           ('bg-purple', 'background:#6f42c1'),
+    'administrador': ('bg-purple', 'background:#6f42c1'),
+    'diretoria':    ('bg-dark', ''),
+    'gestor':       ('bg-info text-dark', ''),
+    'colaborador':  ('bg-secondary', ''),
+}
+
+
+def perfil_badge(colaborador) -> dict:
+    """Nome de exibição + classe/estilo do badge de perfil de um colaborador.
+
+    Usa o nome do perfil customizado quando disponível (com fallback para o
+    enum legado `perfil`); perfis padrão mantêm suas cores históricas e
+    perfis customizados sem cor mapeada caem em cinza neutro.
+    """
+    if getattr(colaborador, 'perfil_obj', None) is not None:
+        nome = colaborador.perfil_obj.nome
+    else:
+        nome = (colaborador.perfil or '').capitalize()
+    classe, estilo = _CORES_PERFIL_PADRAO.get(nome.lower(), ('bg-secondary', ''))
+    return {'nome': nome, 'classe': classe, 'estilo': estilo}
