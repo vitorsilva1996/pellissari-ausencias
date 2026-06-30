@@ -26,7 +26,7 @@
                         <div class="text-muted small">{{ colaborador.funcao }}</div>
                         <span class="badge mt-1"
                               style="background:#C0392B;font-size:.7rem">
-                            {{ colaborador.perfil | upper }}
+                            {{ (colaborador.perfil_obj.nome if colaborador.perfil_obj else colaborador.perfil | capitalize) | upper }}
                         </span>
                     </div>
                 </div>

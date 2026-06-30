@@ -138,7 +138,7 @@
               <div class="dropdown-header lh-sm">
                 <div class="fw-semibold">{{ current_user.nome }}</div>
                 <div class="text-muted small fw-normal">{{ current_user.funcao }}</div>
-                <div class="mt-1"><span class="badge bg-light border" style="color:#C0392B;font-size:.68rem">{{ current_user.perfil | upper }}</span></div>
+                <div class="mt-1"><span class="badge bg-light border" style="color:#C0392B;font-size:.68rem">{{ (current_user.perfil_obj.nome if current_user.perfil_obj else current_user.perfil | capitalize) | upper }}</span></div>
               </div>
             </li>
             <li><hr class="dropdown-divider my-1"></li>

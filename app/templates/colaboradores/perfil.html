@@ -19,7 +19,7 @@
 
 {% block content %}
 <div class="d-flex align-items-center gap-2 mb-4">
-    {% if current_user.perfil in ('rh', 'diretoria') %}
+    {% if has_permission(current_user, 'colaboradores.ver') %}
     <a href="{{ url_for('colaboradores.index') }}" class="text-muted text-decoration-none">← Colaboradores</a>
     <span class="text-muted">/</span>
     {% endif %}
@@ -74,16 +74,23 @@
             </div>
         </div>
 
-        {% if current_user.perfil in ('rh', 'diretoria') %}
+        {% if has_permission(current_user, 'colaboradores.editar') or has_permission(current_user, 'colaboradores.periodos') or has_permission(current_user, 'colaboradores.desativar') %}
         <div class="d-grid gap-2">
+            {% if has_permission(current_user, 'colaboradores.editar') %}
             <a href="{{ url_for('colaboradores.editar', id=colab.id) }}"
                class="btn btn-outline-primary btn-sm">Editar dados</a>
+            {% endif %}
+            {% if has_permission(current_user, 'colaboradores.periodos') %}
             <a href="{{ url_for('colaboradores.periodos', id=colab.id) }}"
                class="btn btn-outline-secondary btn-sm">Gerenciar períodos aquisitivos</a>
+            {% endif %}
+            {% if has_permission(current_user, 'colaboradores.editar') %}
             <form method="POST" action="{{ url_for('colaboradores.reset_senha', id=colab.id) }}"
                   onsubmit="return confirm('Gerar nova senha temporária para {{ colab.nome }}?')">
                 <button type="submit" class="btn btn-outline-warning btn-sm w-100">Resetar senha</button>
             </form>
+            {% endif %}
+            {% if has_permission(current_user, 'colaboradores.desativar') %}
             {% if colab.ativo %}
             <form method="POST" action="{{ url_for('colaboradores.desativar', id=colab.id) }}"
                   onsubmit="return confirm('Desativar {{ colab.nome }}? O histórico será preservado.')">
@@ -93,6 +100,7 @@
             <form method="POST" action="{{ url_for('colaboradores.reativar', id=colab.id) }}">
                 <button type="submit" class="btn btn-outline-success btn-sm w-100">Reativar colaborador</button>
             </form>
+            {% endif %}
             {% endif %}
         </div>
         {% endif %}
@@ -105,7 +113,7 @@
         <div class="card border-0 shadow-sm mb-3">
             <div class="card-header bg-white border-0 pt-3 pb-0 d-flex justify-content-between">
                 <h6 class="fw-bold mb-0">Períodos aquisitivos</h6>
-                {% if current_user.perfil in ('rh', 'diretoria') %}
+                {% if has_permission(current_user, 'colaboradores.periodos') %}
                 <a href="{{ url_for('colaboradores.periodos', id=colab.id) }}"
                    class="btn btn-xs btn-outline-secondary btn-sm" style="font-size:.75rem;padding:2px 8px">
                    Gerenciar
