@@ -7,20 +7,26 @@ from flask import render_template, redirect, url_for, request, flash, abort
 from flask_login import login_required, current_user
 
 from app.colaboradores import colaboradores
-from app.models import Colaborador, Equipe, PeriodoAquisitivo, Ferias, DayOff
+from app.models import Colaborador, Equipe, PeriodoAquisitivo, Ferias, DayOff, Perfil
 from app import db
+from app.auth.permissions import has_permission, require_permission, get_user_equipes
 
-
-def _somente_rh():
-    if current_user.perfil not in ('rh', 'diretoria'):
-        abort(403)
+# Mapeamento nome-do-perfil → string de compatibilidade
+_PERFIL_STR = {
+    'Colaborador': 'colaborador',
+    'Gestor': 'gestor',
+    'RH': 'rh',
+    'Diretoria': 'diretoria',
+    'Administrador': 'rh',
+}
 
 
 def _pode_ver_perfil(colab):
-    if current_user.perfil in ('rh', 'diretoria'):
+    if has_permission(current_user, 'colaboradores.editar'):
         return True
-    if current_user.perfil == 'gestor' and colab.gestor_id == current_user.id:
-        return True
+    if has_permission(current_user, 'colaboradores.ver'):
+        equipe_ids = get_user_equipes(current_user)
+        return colab.equipe_id in equipe_ids
     return current_user.id == colab.id
 
 
@@ -40,12 +46,15 @@ def _equipes_e_gestores():
     return equipes, gestores
 
 
+def _perfis_disponiveis():
+    return Perfil.query.filter_by(ativo=1).order_by(Perfil.nome).all()
+
+
 # ── Listagem ──────────────────────────────────────────────────────────────────
 
 @colaboradores.route('/')
-@login_required
+@require_permission('colaboradores.ver')
 def index():
-    _somente_rh()
     mostrar_inativos = request.args.get('inativos', '0') == '1'
     q = Colaborador.query
     if not mostrar_inativos:
@@ -58,10 +67,10 @@ def index():
 # ── Cadastro ──────────────────────────────────────────────────────────────────
 
 @colaboradores.route('/novo', methods=['GET', 'POST'])
-@login_required
+@require_permission('colaboradores.cadastrar')
 def novo():
-    _somente_rh()
     equipes, gestores = _equipes_e_gestores()
+    perfis = _perfis_disponiveis()
 
     if request.method == 'POST':
         nome = request.form.get('nome', '').strip().title()
@@ -70,7 +79,7 @@ def novo():
         equipe_id = request.form.get('equipe_id', type=int)
         gestor_id = request.form.get('gestor_id', type=int) or None
         admissao_s = request.form.get('data_admissao', '').strip()
-        perfil = request.form.get('perfil', 'colaborador')
+        perfil_id = request.form.get('perfil_id', type=int)
 
         erros = []
         if not nome:
@@ -85,8 +94,20 @@ def novo():
             erros.append('Equipe é obrigatória.')
         if not admissao_s:
             erros.append('Data de admissão é obrigatória.')
-        if perfil not in ('colaborador', 'gestor', 'rh', 'diretoria'):
-            erros.append('Perfil inválido.')
+
+        perfil_obj = None
+        perfil_str = 'colaborador'
+        if perfil_id:
+            perfil_obj = Perfil.query.get(perfil_id)
+            if perfil_obj:
+                perfil_str = _PERFIL_STR.get(perfil_obj.nome, 'colaborador')
+            else:
+                erros.append('Perfil inválido.')
+        elif not perfis:
+            # fallback pré-migração
+            perfil_str = request.form.get('perfil', 'colaborador')
+            if perfil_str not in ('colaborador', 'gestor', 'rh', 'diretoria'):
+                erros.append('Perfil inválido.')
 
         data_admissao = None
         if admissao_s:
@@ -100,7 +121,7 @@ def novo():
                 flash(e, 'danger')
             return render_template('colaboradores/form.html',
                                    colab=None, equipes=equipes, gestores=gestores,
-                                   form=request.form)
+                                   perfis=perfis, form=request.form)
 
         senha_temp = _gerar_senha()
         c = Colaborador(
@@ -110,10 +131,17 @@ def novo():
             equipe_id=equipe_id,
             gestor_id=gestor_id,
             data_admissao=data_admissao,
-            perfil=perfil,
+            perfil=perfil_str,
+            perfil_id=perfil_id,
             ativo=1,
         )
         c.set_senha(senha_temp)
+
+        # Equipes gerenciadas (multi-equipe)
+        equipe_ids = request.form.getlist('equipes_gerenciadas', type=int)
+        if equipe_ids:
+            c.equipes_gerenciadas = Equipe.query.filter(Equipe.id.in_(equipe_ids)).all()
+
         db.session.add(c)
         db.session.commit()
 
@@ -126,7 +154,7 @@ def novo():
 
     return render_template('colaboradores/form.html',
                            colab=None, equipes=equipes, gestores=gestores,
-                           form={})
+                           perfis=perfis, form={})
 
 
 # ── Perfil ────────────────────────────────────────────────────────────────────
@@ -167,11 +195,11 @@ def perfil(id):
 # ── Edição ────────────────────────────────────────────────────────────────────
 
 @colaboradores.route('/<int:id>/editar', methods=['GET', 'POST'])
-@login_required
+@require_permission('colaboradores.editar')
 def editar(id):
-    _somente_rh()
     colab = Colaborador.query.get_or_404(id)
     equipes, gestores = _equipes_e_gestores()
+    perfis = _perfis_disponiveis()
 
     if request.method == 'POST':
         nome = request.form.get('nome', '').strip().title()
@@ -180,7 +208,7 @@ def editar(id):
         equipe_id = request.form.get('equipe_id', type=int)
         gestor_id = request.form.get('gestor_id', type=int) or None
         admissao_s = request.form.get('data_admissao', '').strip()
-        perfil_val = request.form.get('perfil', 'colaborador')
+        perfil_id = request.form.get('perfil_id', type=int)
 
         erros = []
         if not nome:
@@ -199,6 +227,12 @@ def editar(id):
         if not equipe_id:
             erros.append('Equipe é obrigatória.')
 
+        perfil_obj = None
+        if perfil_id:
+            perfil_obj = Perfil.query.get(perfil_id)
+            if not perfil_obj:
+                erros.append('Perfil inválido.')
+
         data_admissao = colab.data_admissao
         if admissao_s:
             try:
@@ -211,7 +245,7 @@ def editar(id):
                 flash(e, 'danger')
             return render_template('colaboradores/form.html',
                                    colab=colab, equipes=equipes, gestores=gestores,
-                                   form=request.form)
+                                   perfis=perfis, form=request.form)
 
         colab.nome = nome
         colab.email = email
@@ -219,23 +253,34 @@ def editar(id):
         colab.equipe_id = equipe_id
         colab.gestor_id = gestor_id
         colab.data_admissao = data_admissao
-        colab.perfil = perfil_val
-        db.session.commit()
 
+        if perfil_obj:
+            colab.perfil_id = perfil_obj.id
+            colab.perfil = _PERFIL_STR.get(perfil_obj.nome, 'colaborador')
+        elif not perfis:
+            # fallback pré-migração
+            colab.perfil = request.form.get('perfil', colab.perfil)
+
+        # Equipes gerenciadas
+        equipe_ids = request.form.getlist('equipes_gerenciadas', type=int)
+        colab.equipes_gerenciadas = (
+            Equipe.query.filter(Equipe.id.in_(equipe_ids)).all() if equipe_ids else []
+        )
+
+        db.session.commit()
         flash('Dados atualizados com sucesso.', 'success')
         return redirect(url_for('colaboradores.perfil', id=colab.id))
 
     return render_template('colaboradores/form.html',
                            colab=colab, equipes=equipes, gestores=gestores,
-                           form={})
+                           perfis=perfis, form={})
 
 
 # ── Desativação ───────────────────────────────────────────────────────────────
 
 @colaboradores.route('/<int:id>/desativar', methods=['POST'])
-@login_required
+@require_permission('colaboradores.desativar')
 def desativar(id):
-    _somente_rh()
     colab = Colaborador.query.get_or_404(id)
     if colab.id == current_user.id:
         flash('Você não pode desativar seu próprio cadastro.', 'danger')
@@ -250,9 +295,8 @@ def desativar(id):
 # ── Reativação ────────────────────────────────────────────────────────────────
 
 @colaboradores.route('/<int:id>/reativar', methods=['POST'])
-@login_required
+@require_permission('colaboradores.desativar')
 def reativar(id):
-    _somente_rh()
     colab = Colaborador.query.get_or_404(id)
     colab.ativo = 1
     db.session.commit()
@@ -263,9 +307,8 @@ def reativar(id):
 # ── Reset de senha ────────────────────────────────────────────────────────────
 
 @colaboradores.route('/<int:id>/reset-senha', methods=['POST'])
-@login_required
+@require_permission('colaboradores.editar')
 def reset_senha(id):
-    _somente_rh()
     colab = Colaborador.query.get_or_404(id)
     nova = _gerar_senha()
     colab.set_senha(nova)
@@ -281,9 +324,8 @@ def reset_senha(id):
 # ── Períodos aquisitivos ──────────────────────────────────────────────────────
 
 @colaboradores.route('/<int:id>/periodos')
-@login_required
+@require_permission('colaboradores.periodos')
 def periodos(id):
-    _somente_rh()
     colab = Colaborador.query.get_or_404(id)
     lista = (
         PeriodoAquisitivo.query
@@ -298,12 +340,10 @@ def periodos(id):
 
 
 @colaboradores.route('/<int:id>/periodos/novo', methods=['GET', 'POST'])
-@login_required
+@require_permission('colaboradores.periodos')
 def periodo_novo(id):
-    _somente_rh()
     colab = Colaborador.query.get_or_404(id)
 
-    # Sugere próximo período a partir do último existente ou da admissão
     ultimo = (
         PeriodoAquisitivo.query
         .filter_by(colaborador_id=id)
@@ -350,7 +390,6 @@ def periodo_novo(id):
         if dias < 1 or dias > 30:
             erros.append('Dias de direito deve estar entre 1 e 30.')
 
-        # Verifica sobreposição com períodos existentes
         if data_inicio and data_fim and not erros:
             overlap = PeriodoAquisitivo.query.filter(
                 PeriodoAquisitivo.colaborador_id == id,

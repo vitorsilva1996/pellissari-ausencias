@@ -6,6 +6,7 @@ from flask_login import login_required, current_user
 from app.ferias import ferias
 from app.models import Ferias, PeriodoAquisitivo, Notificacao, Colaborador
 from app import db
+from app.auth.permissions import has_permission, require_permission, get_user_equipes
 from app.notificacoes.email import (
     enviar_notificacao_ferias_gestor,
     enviar_notificacao_ferias_rh,
@@ -46,13 +47,14 @@ def _conflitos_equipe(colaborador, data_inicio, data_retorno, excluir_id=None):
 
 def _pode_aprovar(f):
     """Verifica se o usuário atual pode agir nesta solicitação."""
-    if current_user.perfil == 'gestor':
+    if has_permission(current_user, 'ferias.aprovar_2'):
+        return f.status in ('aguardando_gestor', 'aguardando_rh')
+    if has_permission(current_user, 'ferias.aprovar_1'):
+        equipe_ids = get_user_equipes(current_user)
         return (
             f.status == 'aguardando_gestor'
-            and f.colaborador.gestor_id == current_user.id
+            and f.colaborador.equipe_id in equipe_ids
         )
-    if current_user.perfil in ('rh', 'diretoria'):
-        return f.status in ('aguardando_gestor', 'aguardando_rh')
     return False
 
 
@@ -69,16 +71,28 @@ def index():
     )
 
     pendentes = []
-    if current_user.perfil in ('gestor', 'rh', 'diretoria'):
-        q = Ferias.query.join(Colaborador)
-        if current_user.perfil == 'gestor':
-            q = q.filter(
-                Colaborador.gestor_id == current_user.id,
+    pode_aprovar_2 = has_permission(current_user, 'ferias.aprovar_2')
+    pode_aprovar_1 = has_permission(current_user, 'ferias.aprovar_1')
+
+    if pode_aprovar_2:
+        pendentes = (
+            Ferias.query
+            .filter(Ferias.status.in_(['aguardando_gestor', 'aguardando_rh']))
+            .order_by(Ferias.solicitado_em.asc())
+            .all()
+        )
+    elif pode_aprovar_1:
+        equipe_ids = get_user_equipes(current_user)
+        pendentes = (
+            Ferias.query
+            .join(Colaborador)
+            .filter(
+                Colaborador.equipe_id.in_(equipe_ids),
                 Ferias.status == 'aguardando_gestor',
             )
-        else:
-            q = q.filter(Ferias.status.in_(['aguardando_gestor', 'aguardando_rh']))
-        pendentes = q.order_by(Ferias.solicitado_em.asc()).all()
+            .order_by(Ferias.solicitado_em.asc())
+            .all()
+        )
 
     hoje = date.today()
     periodos = (
@@ -207,11 +221,8 @@ def solicitar():
 # ── Aprovação / Reprovação ────────────────────────────────────────────────────
 
 @ferias.route('/aprovar/<int:id>', methods=['GET', 'POST'])
-@login_required
+@require_permission('ferias.aprovar_1')
 def aprovar(id):
-    if current_user.perfil not in ('gestor', 'rh', 'diretoria'):
-        abort(403)
-
     f = Ferias.query.get_or_404(id)
 
     if not _pode_aprovar(f):
@@ -230,7 +241,8 @@ def aprovar(id):
             return render_template('ferias/aprovar.html', f=f, conflitos=conflitos)
 
         _acao_gestor = None
-        if current_user.perfil == 'gestor':
+        if not has_permission(current_user, 'ferias.aprovar_2'):
+            # Aprovador de 1º nível (gestor)
             if acao == 'aprovar':
                 f.status = 'aguardando_rh'
                 f.comentario_gestor = comentario
@@ -262,7 +274,8 @@ def aprovar(id):
                 flash('Solicitação reprovada.', 'info')
                 _acao_gestor = 'reprovada'
 
-        else:  # rh / diretoria
+        else:
+            # Aprovador de 2º nível (RH / administrador)
             if f.status == 'aguardando_gestor':
                 f.aprovado_gestor_em = agora
 
@@ -290,7 +303,7 @@ def aprovar(id):
 
         db.session.commit()
 
-        if current_user.perfil == 'gestor':
+        if not has_permission(current_user, 'ferias.aprovar_2') and _acao_gestor:
             if _acao_gestor == 'aprovada_rh':
                 enviar_notificacao_ferias_rh(f)
             else:
@@ -334,18 +347,19 @@ def cancelar(id):
 @ferias.route('/historico')
 @login_required
 def historico():
-    if current_user.perfil in ('rh', 'diretoria'):
+    if has_permission(current_user, 'ferias.aprovar_2'):
         lista = (
             Ferias.query
             .join(Colaborador)
             .order_by(Ferias.solicitado_em.desc())
             .all()
         )
-    elif current_user.perfil == 'gestor':
+    elif has_permission(current_user, 'ferias.aprovar_1'):
+        equipe_ids = get_user_equipes(current_user)
         lista = (
             Ferias.query
             .join(Colaborador)
-            .filter(Colaborador.gestor_id == current_user.id)
+            .filter(Colaborador.equipe_id.in_(equipe_ids))
             .order_by(Ferias.solicitado_em.desc())
             .all()
         )

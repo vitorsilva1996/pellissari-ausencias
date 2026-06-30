@@ -8,6 +8,7 @@ from app.painel import painel
 from app.models import (
     Colaborador, Equipe, PeriodoAquisitivo, Ferias, DayOff
 )
+from app.auth.permissions import has_permission, require_permission, get_user_equipes
 
 # Ordem de prioridade: quanto maior, mais crítico
 _STATUS_PRIO = {
@@ -28,7 +29,6 @@ def _status_periodo(periodo, hoje):
     if periodo.data_limite_saida < hoje:
         return 'vencido'
     dias_ate_limite = (periodo.data_limite_saida - hoje).days
-    # Soma dias de férias aprovadas que ainda não terminaram
     ferias_futuras = [
         f for f in periodo.ferias
         if f.status == 'aprovada' and f.data_retorno > hoje
@@ -42,9 +42,10 @@ def _status_periodo(periodo, hoje):
 
 
 def _equipes_visiveis():
-    if current_user.perfil in ('rh', 'diretoria'):
+    if has_permission(current_user, 'painel.exportar'):
         return Equipe.query.order_by(Equipe.nome).all()
-    return [current_user.equipe]
+    ids = get_user_equipes(current_user)
+    return Equipe.query.filter(Equipe.id.in_(ids)).order_by(Equipe.nome).all()
 
 
 def _dados_painel(equipe_ids, hoje):
@@ -59,7 +60,6 @@ def _dados_painel(equipe_ids, hoje):
     )
     colab_ids = [c.id for c in colaboradores]
 
-    # ── Status de férias por colaborador ─────────────────────────────────────
     colab_rows = []
     alertas_vencidos = []
     alertas_30 = []
@@ -78,7 +78,6 @@ def _dados_painel(equipe_ids, hoje):
         periodos_rel = []
         for p in periodos:
             restantes = p.dias_restantes()
-            # Ignora períodos antigos 100% concluídos
             if restantes == 0 and p.data_limite_saida < hoje - timedelta(days=90):
                 continue
             s = _status_periodo(p, hoje)
@@ -90,14 +89,12 @@ def _dados_painel(equipe_ids, hoje):
                 'dias_limite': dias_limite,
             })
 
-        # Status "pior" do colaborador
         status_geral = max(
             (pr['status'] for pr in periodos_rel),
             key=lambda s: _STATUS_PRIO.get(s, -1),
             default='sem_periodo',
         )
 
-        # Período mais crítico para exibir na tabela
         periodo_principal = max(
             periodos_rel,
             key=lambda pr: _STATUS_PRIO.get(pr['status'], -1),
@@ -114,7 +111,6 @@ def _dados_painel(equipe_ids, hoje):
         if status_geral in ('vencido', 'atencao'):
             n_vencidos_atencao += 1
 
-        # Alertas por período
         for pr in periodos_rel:
             s = pr['status']
             d = pr['dias_limite']
@@ -129,7 +125,6 @@ def _dados_painel(equipe_ids, hoje):
             elif s in ('pendente', 'programado') and 60 < d <= 90:
                 alertas_90.append(item)
 
-    # ── Solicitações pendentes ────────────────────────────────────────────────
     pendentes_ferias = (
         Ferias.query
         .join(Colaborador)
@@ -152,7 +147,6 @@ def _dados_painel(equipe_ids, hoje):
         .all()
     )
 
-    # ── Day offs não solicitados no mês ──────────────────────────────────────
     dayoff_sem_solicitacao = []
     for c in colaboradores:
         if not c.pode_solicitar_dayoff():
@@ -165,14 +159,12 @@ def _dados_painel(equipe_ids, hoje):
         if not tem:
             dayoff_sem_solicitacao.append(c)
 
-    # ── Férias aprovadas vigentes ─────────────────────────────────────────────
     ferias_aprovadas = Ferias.query.filter(
         Ferias.colaborador_id.in_(colab_ids),
         Ferias.status == 'aprovada',
         Ferias.data_retorno >= hoje,
     ).count()
 
-    # ── Resumo por equipe ────────────────────────────────────────────────────
     _eq_map = {}
     for row in colab_rows:
         eq = row['colaborador'].equipe
@@ -188,13 +180,11 @@ def _dados_painel(equipe_ids, hoje):
             _eq_map[eq.id]['ok'] += 1
     resumo_equipes = sorted(_eq_map.values(), key=lambda x: x['nome'])
 
-    # ── Alertas críticos unificados (vencidos + atenção ≤60d) ───────────────
     alertas_criticos = sorted(
         alertas_vencidos + alertas_30 + alertas_60,
         key=lambda a: a['dias_limite'],
     )
 
-    # ── Pendentes unificados para o dashboard ────────────────────────────────
     pendentes_aprovacao = []
     for f in pendentes_ferias:
         pendentes_aprovacao.append({
@@ -246,17 +236,15 @@ def _dados_painel(equipe_ids, hoje):
 @painel.route('/')
 @login_required
 def index():
-    colaborador_atual = db.session.get(Colaborador, current_user.id)
-    if colaborador_atual is None or colaborador_atual.perfil == 'colaborador':
+    if not has_permission(current_user, 'painel.ver'):
         return render_template('painel/pessoal.html')
 
     hoje = date.today()
     equipes = _equipes_visiveis()
     equipe_ids = {e.id for e in equipes}
 
-    # Filtro por equipe (só RH / diretoria podem escolher)
     equipe_filtro = request.args.get('equipe', 'todas')
-    if equipe_filtro != 'todas' and colaborador_atual.perfil in ('rh', 'diretoria'):
+    if equipe_filtro != 'todas' and has_permission(current_user, 'painel.exportar'):
         try:
             fid = int(equipe_filtro)
             if fid in equipe_ids:
@@ -275,16 +263,14 @@ def index():
 
 
 @painel.route('/equipe/<int:equipe_id>')
-@login_required
+@require_permission('painel.ver')
 def equipe(equipe_id):
-    if current_user.perfil == 'colaborador':
-        abort(403)
-
     eq = Equipe.query.get_or_404(equipe_id)
 
-    # Gestor só acessa a própria equipe
-    if current_user.perfil == 'gestor' and current_user.equipe_id != equipe_id:
-        abort(403)
+    if not has_permission(current_user, 'painel.exportar'):
+        equipe_ids = get_user_equipes(current_user)
+        if equipe_id not in equipe_ids:
+            abort(403)
 
     hoje = date.today()
     equipes = _equipes_visiveis()
@@ -300,18 +286,14 @@ def equipe(equipe_id):
 
 
 @painel.route('/colaboradores')
-@login_required
+@require_permission('painel.ver')
 def colaboradores():
-    colaborador_atual = db.session.get(Colaborador, current_user.id)
-    if colaborador_atual is None or colaborador_atual.perfil == 'colaborador':
-        abort(403)
-
     hoje = date.today()
     equipes = _equipes_visiveis()
     equipe_ids = {e.id for e in equipes}
 
     equipe_filtro = request.args.get('equipe', 'todas')
-    if equipe_filtro != 'todas' and colaborador_atual.perfil in ('rh', 'diretoria'):
+    if equipe_filtro != 'todas' and has_permission(current_user, 'painel.exportar'):
         try:
             fid = int(equipe_filtro)
             if fid in equipe_ids:
@@ -332,12 +314,11 @@ def colaboradores():
 
 def _resolver_equipe_ids():
     """Retorna (equipe_ids, equipe_label) com base no query param ?equipe=."""
-    colaborador_atual = db.session.get(Colaborador, current_user.id)
     equipes = _equipes_visiveis()
     equipe_ids = {e.id for e in equipes}
     equipe_filtro = request.args.get('equipe', 'todas')
 
-    if equipe_filtro != 'todas' and colaborador_atual.perfil in ('rh', 'diretoria'):
+    if equipe_filtro != 'todas' and has_permission(current_user, 'painel.exportar'):
         try:
             fid = int(equipe_filtro)
             if fid in equipe_ids:
@@ -351,12 +332,8 @@ def _resolver_equipe_ids():
 
 
 @painel.route('/exportar/pdf')
-@login_required
+@require_permission('painel.exportar')
 def exportar_pdf():
-    colaborador_atual = db.session.get(Colaborador, current_user.id)
-    if colaborador_atual is None or colaborador_atual.perfil == 'colaborador':
-        abort(403)
-
     from app.painel.relatorios import gerar_pdf_ferias
     equipe_ids, equipe_label = _resolver_equipe_ids()
     dados = _dados_painel(equipe_ids, date.today())
@@ -370,12 +347,8 @@ def exportar_pdf():
 
 
 @painel.route('/exportar/excel')
-@login_required
+@require_permission('painel.exportar')
 def exportar_excel():
-    colaborador_atual = db.session.get(Colaborador, current_user.id)
-    if colaborador_atual is None or colaborador_atual.perfil == 'colaborador':
-        abort(403)
-
     from app.painel.relatorios import gerar_excel_ferias
     equipe_ids, equipe_label = _resolver_equipe_ids()
     dados = _dados_painel(equipe_ids, date.today())
@@ -389,12 +362,8 @@ def exportar_excel():
 
 
 @painel.route('/exportar/alertas/pdf')
-@login_required
+@require_permission('painel.exportar')
 def exportar_alertas_pdf():
-    colaborador_atual = db.session.get(Colaborador, current_user.id)
-    if colaborador_atual is None or colaborador_atual.perfil == 'colaborador':
-        abort(403)
-
     from app.painel.relatorios import gerar_pdf_alertas
     equipe_ids, equipe_label = _resolver_equipe_ids()
     dados = _dados_painel(equipe_ids, date.today())

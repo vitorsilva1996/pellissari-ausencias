@@ -56,7 +56,7 @@
       {# ── Links principais ── #}
       <ul class="navbar-nav me-auto mb-2 mb-lg-0 gap-1">
 
-        {% if current_user.perfil in ('gestor', 'rh', 'diretoria') %}
+        {% if has_permission(current_user, 'painel.ver') %}
         <li class="nav-item">
           <a class="nav-link px-3 {% if request.blueprint == 'painel' %}active{% endif %}"
              href="{{ url_for('painel.index') }}">Painel</a>
@@ -78,10 +78,17 @@
              href="{{ url_for('calendario.index') }}">Calendário</a>
         </li>
 
-        {% if current_user.perfil in ('rh', 'diretoria') %}
+        {% if has_permission(current_user, 'colaboradores.ver') %}
         <li class="nav-item">
           <a class="nav-link px-3 {% if request.blueprint == 'colaboradores' %}active{% endif %}"
              href="{{ url_for('colaboradores.index') }}">Colaboradores</a>
+        </li>
+        {% endif %}
+
+        {% if has_permission(current_user, 'configuracoes.perfis') %}
+        <li class="nav-item">
+          <a class="nav-link px-3 {% if request.blueprint == 'configuracoes' %}active{% endif %}"
+             href="{{ url_for('configuracoes.perfis') }}">Configurações</a>
         </li>
         {% endif %}
 

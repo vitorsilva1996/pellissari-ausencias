@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% block title %}{% if perfil %}Editar Perfil{% else %}Novo Perfil{% endif %}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-lg-8">
+
+<div class="d-flex align-items-center gap-2 mb-4">
+    <a href="{{ url_for('configuracoes.perfis') }}" class="text-muted text-decoration-none">← Perfis</a>
+    <span class="text-muted">/</span>
+    <span class="fw-semibold">{% if perfil %}{{ perfil.nome }}{% else %}Novo perfil{% endif %}</span>
+</div>
+
+<div class="card border-0 shadow-sm">
+<div class="card-body p-4">
+
+    <h5 class="fw-bold mb-4">
+        {% if perfil %}Editar perfil{% else %}Criar novo perfil{% endif %}
+    </h5>
+
+    <form method="POST"
+          action="{{ url_for('configuracoes.perfil_editar', id=perfil.id) if perfil else url_for('configuracoes.perfil_novo') }}"
+          novalidate>
+
+        <div class="row g-3 mb-4">
+            <div class="col-sm-6">
+                <label class="form-label fw-semibold" for="nome">Nome do perfil</label>
+                <input type="text" class="form-control" id="nome" name="nome"
+                       value="{{ perfil.nome if perfil else form.get('nome', '') }}"
+                       required autofocus>
+            </div>
+            <div class="col-sm-6">
+                <label class="form-label fw-semibold" for="descricao">Descrição</label>
+                <input type="text" class="form-control" id="descricao" name="descricao"
+                       value="{{ perfil.descricao if perfil else form.get('descricao', '') }}"
+                       placeholder="Opcional">
+            </div>
+        </div>
+
+        <h6 class="fw-semibold mb-3">Permissões</h6>
+
+        {% for modulo, perms in permissoes_por_modulo.items() %}
+        <div class="mb-4">
+            <div class="fw-semibold text-uppercase small text-muted mb-2"
+                 style="letter-spacing:.05em;border-bottom:1px solid #eee;padding-bottom:4px">
+                {{ modulo }}
+            </div>
+            <div class="row row-cols-1 row-cols-sm-2 g-1">
+                {% for p in perms %}
+                <div class="col">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox"
+                               name="permissoes" value="{{ p.id }}"
+                               id="perm_{{ p.id }}"
+                               {{ 'checked' if p.id in perfil_permissao_ids }}>
+                        <label class="form-check-label small" for="perm_{{ p.id }}">
+                            {{ p.descricao }}
+                            <span class="text-muted" style="font-size:.7rem">({{ p.codigo }})</span>
+                        </label>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+
+        <div class="d-flex gap-2 mt-3 pt-3 border-top">
+            <button type="submit" class="btn btn-primary">
+                {% if perfil %}Salvar alterações{% else %}Criar perfil{% endif %}
+            </button>
+            <a href="{{ url_for('configuracoes.perfis') }}" class="btn btn-outline-secondary">
+                Cancelar
+            </a>
+        </div>
+
+    </form>
+</div>
+</div>
+
+</div>
+</div>
+{% endblock %}

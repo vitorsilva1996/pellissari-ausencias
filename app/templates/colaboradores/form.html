@@ -14,8 +14,6 @@
   {%- else %}{{ default }}{%- endif %}
 {% endmacro %}
 
-{% macro sel(field, value) %}{{ 'selected' if (form.get(field) == value|string if form else colab and (colab[field] if field in colab.__dict__ else '') == value) else '' }}{% endmacro %}
-
 {% block content %}
 <div class="row justify-content-center">
 <div class="col-lg-7">
@@ -86,20 +84,45 @@
                     </select>
                 </div>
 
-                {# Perfil #}
+                {# Perfil de acesso #}
                 <div class="col-sm-6">
-                    <label class="form-label fw-semibold" for="perfil">Perfil de acesso</label>
-                    <select class="form-select" id="perfil" name="perfil" required>
-                        {% for p in ['colaborador', 'gestor', 'rh', 'diretoria'] %}
-                        <option value="{{ p }}"
-                            {% if form and form.get('perfil') == p %}selected
-                            {% elif colab and colab.perfil == p %}selected
-                            {% elif not form and not colab and p == 'colaborador' %}selected{% endif %}>
-                            {{ p | capitalize }}
+                    <label class="form-label fw-semibold" for="perfil_id">Perfil de acesso</label>
+                    {% if perfis %}
+                    <select class="form-select" id="perfil_id" name="perfil_id" required>
+                        <option value="">Selecione...</option>
+                        {% for p in perfis %}
+                        {% set form_pid = form.get('perfil_id')|int if form and form.get('perfil_id') else 0 %}
+                        <option value="{{ p.id }}"
+                            {% if form_pid and form_pid == p.id %}selected
+                            {% elif colab and colab.perfil_id == p.id %}selected
+                            {% elif not form and not colab and p.nome == 'Colaborador' %}selected{% endif %}>
+                            {{ p.nome }}
                         </option>
                         {% endfor %}
                     </select>
+                    {% else %}
+                    <div class="alert alert-warning small py-2 mb-0">
+                        Execute <code>migrar_perfis.py</code> para habilitar perfis customizáveis.
+                    </div>
+                    {% endif %}
                 </div>
+            </div>
+
+            {# Equipes gerenciadas #}
+            <div class="mb-3" id="equipes-gerenciadas-container">
+                <label class="form-label fw-semibold">
+                    Equipes gerenciadas
+                    <span class="text-muted fw-normal small">(apenas para Gestor)</span>
+                </label>
+                <select name="equipes_gerenciadas" class="form-select" multiple size="5">
+                    {% for eq in equipes %}
+                    <option value="{{ eq.id }}"
+                        {% if colab and eq in colab.equipes_gerenciadas %}selected{% endif %}>
+                        {{ eq.nome }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <div class="form-text">Segure Ctrl/Cmd para selecionar múltiplas. Deixe vazio para gestor de equipe única.</div>
             </div>
 
             {# Gestor #}

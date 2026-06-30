@@ -7,6 +7,7 @@ from flask_login import login_required, current_user
 
 from app.calendario import calendario
 from app.models import Ferias, DayOff, Colaborador, Equipe
+from app.auth.permissions import has_permission, get_user_equipes
 
 MESES_PT = [
     '', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -17,10 +18,10 @@ DIAS_SEMANA = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
 
 def _equipes_visiveis():
     """Equipes que o usuário atual pode visualizar."""
-    if current_user.perfil in ('rh', 'diretoria'):
+    if has_permission(current_user, 'painel.exportar'):
         return Equipe.query.order_by(Equipe.nome).all()
-    # colaborador e gestor veem apenas a própria equipe
-    return [current_user.equipe]
+    ids = get_user_equipes(current_user)
+    return Equipe.query.filter(Equipe.id.in_(ids)).order_by(Equipe.nome).all()
 
 
 def _colaboradores_visiveis(equipe_ids):

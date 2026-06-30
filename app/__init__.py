@@ -59,6 +59,7 @@ def create_app(config_name=None):
     from app.painel import painel as painel_blueprint
     from app.notificacoes import notificacoes as notif_blueprint
     from app.perfil import perfil as perfil_blueprint
+    from app.configuracoes import configuracoes as config_blueprint
 
     app.register_blueprint(auth_blueprint)
     app.register_blueprint(colab_blueprint, url_prefix='/colaboradores')
@@ -68,6 +69,7 @@ def create_app(config_name=None):
     app.register_blueprint(painel_blueprint, url_prefix='/painel')
     app.register_blueprint(notif_blueprint, url_prefix='/notificacoes')
     app.register_blueprint(perfil_blueprint, url_prefix='/perfil')
+    app.register_blueprint(config_blueprint, url_prefix='/configuracoes')
 
     # ── Globals Jinja ─────────────────────────────────────────────────────────
     app.jinja_env.globals['timedelta'] = timedelta
@@ -89,6 +91,7 @@ def create_app(config_name=None):
     def injetar_contexto():
         from flask_login import current_user
         from app.models import Notificacao
+        from app.auth.permissions import has_permission
         count = 0
         if current_user.is_authenticated:
             count = Notificacao.query.filter_by(
@@ -97,6 +100,7 @@ def create_app(config_name=None):
         return {
             'notificacoes_nao_lidas': count,
             'now': datetime.utcnow(),
+            'has_permission': has_permission,
         }
 
     # ── Rota raiz ─────────────────────────────────────────────────────────────

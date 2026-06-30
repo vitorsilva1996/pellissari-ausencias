@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block title %}Perfis de Acesso{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h4 class="fw-bold mb-0">Perfis de acesso</h4>
+        <p class="text-muted small mb-0">Gerencie quais permissões cada perfil possui.</p>
+    </div>
+    <a href="{{ url_for('configuracoes.perfil_novo') }}" class="btn btn-primary btn-sm">
+        + Novo perfil
+    </a>
+</div>
+
+<div class="card border-0 shadow-sm">
+<div class="table-responsive">
+<table class="table table-hover align-middle mb-0">
+    <thead class="table-light">
+        <tr>
+            <th>Nome</th>
+            <th>Descrição</th>
+            <th class="text-center">Permissões</th>
+            <th class="text-center">Usuários ativos</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for p in perfis %}
+    <tr>
+        <td class="fw-semibold">{{ p.nome }}</td>
+        <td class="text-muted small">{{ p.descricao or '—' }}</td>
+        <td class="text-center">
+            <span class="badge bg-secondary">{{ p.permissoes | length }}</span>
+        </td>
+        <td class="text-center">{{ user_counts[p.id] }}</td>
+        <td class="text-end">
+            <a href="{{ url_for('configuracoes.perfil_editar', id=p.id) }}"
+               class="btn btn-outline-secondary btn-sm">Editar</a>
+            {% if user_counts[p.id] == 0 %}
+            <form method="POST" action="{{ url_for('configuracoes.perfil_excluir', id=p.id) }}"
+                  class="d-inline"
+                  onsubmit="return confirm('Excluir perfil {{ p.nome }}?')">
+                <button class="btn btn-outline-danger btn-sm">Excluir</button>
+            </form>
+            {% endif %}
+        </td>
+    </tr>
+    {% else %}
+    <tr>
+        <td colspan="5" class="text-center text-muted py-4">
+            Nenhum perfil cadastrado. Execute <code>scripts/migrar_perfis.py</code> para criar os perfis padrão.
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+</div>
+{% endblock %}

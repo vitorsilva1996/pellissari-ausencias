@@ -8,6 +8,7 @@ from flask_login import login_required, current_user
 from app.dayoff import dayoff
 from app.models import DayOff, Notificacao, Colaborador
 from app import db
+from app.auth.permissions import has_permission, require_permission, get_user_equipes
 from app.notificacoes.email import (
     enviar_notificacao_dayoff_gestor,
     enviar_notificacao_dayoff_colaborador,
@@ -76,15 +77,11 @@ def index():
     )
 
     pendentes = []
-    if current_user.perfil in ('gestor', 'rh', 'diretoria'):
-        q = DayOff.query.join(Colaborador)
-        if current_user.perfil == 'gestor':
-            q = q.filter(
-                Colaborador.gestor_id == current_user.id,
-                DayOff.status == 'aguardando_gestor',
-            )
-        else:
-            q = q.filter(DayOff.status == 'aguardando_gestor')
+    if has_permission(current_user, 'dayoff.aprovar'):
+        q = DayOff.query.join(Colaborador).filter(DayOff.status == 'aguardando_gestor')
+        if not has_permission(current_user, 'ferias.aprovar_2'):
+            equipe_ids = get_user_equipes(current_user)
+            q = q.filter(Colaborador.equipe_id.in_(equipe_ids))
         pendentes = q.order_by(DayOff.solicitado_em.asc()).all()
 
     data_elegibilidade = None
@@ -200,15 +197,15 @@ def solicitar():
 # ── Aprovação ─────────────────────────────────────────────────────────────────
 
 @dayoff.route('/aprovar/<int:id>', methods=['GET', 'POST'])
-@login_required
+@require_permission('dayoff.aprovar')
 def aprovar(id):
-    if current_user.perfil not in ('gestor', 'rh', 'diretoria'):
-        abort(403)
-
     d = DayOff.query.get_or_404(id)
 
-    if current_user.perfil == 'gestor' and d.colaborador.gestor_id != current_user.id:
-        abort(403)
+    # Aprovadores de 1º nível só podem agir em equipes que gerenciam
+    if not has_permission(current_user, 'ferias.aprovar_2'):
+        equipe_ids = get_user_equipes(current_user)
+        if d.colaborador.equipe_id not in equipe_ids:
+            abort(403)
 
     if d.status != 'aguardando_gestor':
         flash('Esta solicitação já foi processada.', 'warning')
