@@ -10,24 +10,22 @@ from datetime import date
 app = create_app()
 
 with app.app_context():
-    equipe = db.session.get(Equipe, 1)
+    equipe = Equipe.query.filter_by(nome='Kali').first()
     if equipe is None:
-        equipe = Equipe(id=1, nome='Administrativo')
-        db.session.add(equipe)
-        db.session.flush()
-        print('Equipe "Administrativo" criada.')
+        print('Equipe "Kali" não encontrada — execute importacao_final.py primeiro.')
+        sys.exit(1)
 
-    existente = Colaborador.query.filter_by(email='vitor@pellissari.com.br').first()
+    existente = Colaborador.query.filter_by(email='vitor.silva@pellissari.com.br').first()
     if existente:
         print('Usuário já existe:', existente.email)
         sys.exit(0)
 
     admin = Colaborador(
         nome='Vitor Silva',
-        email='vitor@pellissari.com.br',
-        data_admissao=date.today(),
-        funcao='ADMINISTRADOR',
-        equipe_id=1,
+        email='vitor.silva@pellissari.com.br',
+        data_admissao=date(2023, 12, 11),
+        funcao='SUPERVISOR IV',
+        equipe_id=equipe.id,
         perfil='rh',
         ativo=1,
     )
@@ -35,4 +33,4 @@ with app.app_context():
 
     db.session.add(admin)
     db.session.commit()
-    print(f'Usuário criado com sucesso: {admin.nome} <{admin.email}> perfil={admin.perfil}')
+    print(f'Usuário criado: {admin.nome} <{admin.email}> perfil={admin.perfil}')
