@@ -55,14 +55,33 @@ class Perfil(db.Model):
         return f'<Perfil {self.nome}>'
 
 
+# ── Funcao ────────────────────────────────────────────────────────────────────
+
+class Funcao(db.Model):
+    __tablename__ = 'funcoes'
+
+    id    = db.Column(db.Integer, primary_key=True)
+    nome  = db.Column(db.String(100), unique=True, nullable=False)
+    ativo = db.Column(db.SmallInteger, nullable=False, default=1)
+
+    colaboradores = db.relationship(
+        'Colaborador', back_populates='funcao_obj', lazy='dynamic',
+        foreign_keys='Colaborador.funcao_id',
+    )
+
+    def __repr__(self):
+        return f'<Funcao {self.nome}>'
+
+
 # ── Equipe ────────────────────────────────────────────────────────────────────
 
 class Equipe(db.Model):
     __tablename__ = 'equipes'
 
-    id       = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    nome     = db.Column(db.String(100), nullable=False)
+    id        = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    nome      = db.Column(db.String(100), nullable=False)
     descricao = db.Column(db.String(255), nullable=True)
+    ativo     = db.Column(db.SmallInteger, nullable=False, default=1, server_default='1')
 
     colaboradores = db.relationship(
         'Colaborador', back_populates='equipe', lazy='dynamic',
@@ -84,6 +103,7 @@ class Colaborador(UserMixin, db.Model):
     senha_hash   = db.Column(db.String(255), nullable=False)
     data_admissao = db.Column(db.Date, nullable=False)
     funcao       = db.Column(db.String(100), nullable=False)
+    funcao_id    = db.Column(db.Integer, db.ForeignKey('funcoes.id'), nullable=True)
     equipe_id    = db.Column(db.Integer, db.ForeignKey('equipes.id'), nullable=False)
     gestor_id    = db.Column(db.Integer, db.ForeignKey('colaboradores.id'), nullable=True)
     perfil       = db.Column(
@@ -98,6 +118,7 @@ class Colaborador(UserMixin, db.Model):
     equipe = db.relationship(
         'Equipe', back_populates='colaboradores', foreign_keys=[equipe_id],
     )
+    funcao_obj = db.relationship('Funcao', back_populates='colaboradores', foreign_keys=[funcao_id])
     gestor = db.relationship('Colaborador', remote_side=[id], backref='subordinados')
     perfil_obj = db.relationship('Perfil', foreign_keys=[perfil_id])
     equipes_gerenciadas = db.relationship(

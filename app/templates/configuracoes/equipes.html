@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block title %}Equipes{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h4 class="fw-bold mb-0">Equipes</h4>
+        <p class="text-muted small mb-0">Equipes disponíveis para atribuição aos colaboradores.</p>
+    </div>
+    <a href="{{ url_for('configuracoes.equipe_nova') }}" class="btn btn-primary btn-sm">+ Nova equipe</a>
+</div>
+
+<div class="card border-0 shadow-sm">
+<div class="table-responsive">
+<table class="table table-hover align-middle mb-0">
+    <thead class="table-light">
+        <tr>
+            <th>Nome</th>
+            <th>Descrição</th>
+            <th class="text-center">Colaboradores ativos</th>
+            <th class="text-center">Status</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for e in equipes %}
+    <tr class="{% if not e.ativo %}table-secondary text-muted{% endif %}">
+        <td class="fw-semibold">{{ e.nome }}</td>
+        <td class="small text-muted">{{ e.descricao or '—' }}</td>
+        <td class="text-center">{{ colab_counts[e.id] }}</td>
+        <td class="text-center">
+            {% if e.ativo %}
+            <span class="badge bg-success">Ativa</span>
+            {% else %}
+            <span class="badge bg-secondary">Inativa</span>
+            {% endif %}
+        </td>
+        <td class="text-end d-flex gap-1 justify-content-end">
+            <a href="{{ url_for('configuracoes.equipe_editar', id=e.id) }}"
+               class="btn btn-outline-secondary btn-sm">Editar</a>
+            <form method="POST" action="{{ url_for('configuracoes.equipe_toggle', id=e.id) }}" class="d-inline">
+                <button class="btn btn-sm {% if e.ativo %}btn-outline-warning{% else %}btn-outline-success{% endif %}">
+                    {% if e.ativo %}Desativar{% else %}Ativar{% endif %}
+                </button>
+            </form>
+        </td>
+    </tr>
+    {% else %}
+    <tr>
+        <td colspan="5" class="text-center text-muted py-4">Nenhuma equipe cadastrada.</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+</div>
+{% endblock %}

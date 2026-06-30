@@ -7,7 +7,7 @@ from flask import render_template, redirect, url_for, request, flash, abort
 from flask_login import login_required, current_user
 
 from app.colaboradores import colaboradores
-from app.models import Colaborador, Equipe, PeriodoAquisitivo, Ferias, DayOff, Perfil
+from app.models import Colaborador, Equipe, PeriodoAquisitivo, Ferias, DayOff, Perfil, Funcao
 from app import db
 from app.auth.permissions import has_permission, require_permission, get_user_equipes
 
@@ -36,7 +36,7 @@ def _gerar_senha(length=8):
 
 
 def _equipes_e_gestores():
-    equipes = Equipe.query.order_by(Equipe.nome).all()
+    equipes = Equipe.query.filter_by(ativo=1).order_by(Equipe.nome).all()
     gestores = (
         Colaborador.query
         .filter(Colaborador.perfil.in_(['gestor', 'rh', 'diretoria']), Colaborador.ativo == 1)
@@ -50,18 +50,37 @@ def _perfis_disponiveis():
     return Perfil.query.filter_by(ativo=1).order_by(Perfil.nome).all()
 
 
+def _funcoes_disponiveis():
+    return Funcao.query.filter_by(ativo=1).order_by(Funcao.nome).all()
+
+
 # ── Listagem ──────────────────────────────────────────────────────────────────
 
 @colaboradores.route('/')
 @require_permission('colaboradores.ver')
 def index():
     mostrar_inativos = request.args.get('inativos', '0') == '1'
-    q = Colaborador.query
+    busca = request.args.get('q', '').strip()
+
+    q = Colaborador.query.join(Equipe)
     if not mostrar_inativos:
-        q = q.filter_by(ativo=1)
+        q = q.filter(Colaborador.ativo == 1)
+    if busca:
+        termo = f'%{busca}%'
+        q = q.filter(
+            db.or_(
+                Colaborador.nome.ilike(termo),
+                Colaborador.email.ilike(termo),
+                Colaborador.funcao.ilike(termo),
+                Equipe.nome.ilike(termo),
+            )
+        )
+
     lista = q.order_by(Colaborador.nome).all()
     return render_template('colaboradores/index.html',
-                           lista=lista, mostrar_inativos=mostrar_inativos)
+                           lista=lista,
+                           mostrar_inativos=mostrar_inativos,
+                           busca=busca)
 
 
 # ── Cadastro ──────────────────────────────────────────────────────────────────
@@ -71,15 +90,16 @@ def index():
 def novo():
     equipes, gestores = _equipes_e_gestores()
     perfis = _perfis_disponiveis()
+    funcoes = _funcoes_disponiveis()
 
     if request.method == 'POST':
         nome = request.form.get('nome', '').strip().title()
         email = request.form.get('email', '').strip().lower()
-        funcao = request.form.get('funcao', '').strip().upper()
         equipe_id = request.form.get('equipe_id', type=int)
         gestor_id = request.form.get('gestor_id', type=int) or None
         admissao_s = request.form.get('data_admissao', '').strip()
         perfil_id = request.form.get('perfil_id', type=int)
+        funcao_id = request.form.get('funcao_id', type=int)
 
         erros = []
         if not nome:
@@ -88,25 +108,29 @@ def novo():
             erros.append('E-mail é obrigatório.')
         elif Colaborador.query.filter_by(email=email).first():
             erros.append('E-mail já cadastrado.')
-        if not funcao:
-            erros.append('Função é obrigatória.')
         if not equipe_id:
             erros.append('Equipe é obrigatória.')
         if not admissao_s:
             erros.append('Data de admissão é obrigatória.')
 
+        funcao_obj = None
+        funcao_str = ''
+        if funcao_id:
+            funcao_obj = db.session.get(Funcao, funcao_id)
+            if funcao_obj:
+                funcao_str = funcao_obj.nome
+            else:
+                erros.append('Função inválida.')
+        else:
+            erros.append('Função é obrigatória.')
+
         perfil_obj = None
         perfil_str = 'colaborador'
         if perfil_id:
-            perfil_obj = Perfil.query.get(perfil_id)
+            perfil_obj = db.session.get(Perfil, perfil_id)
             if perfil_obj:
                 perfil_str = _PERFIL_STR.get(perfil_obj.nome, 'colaborador')
             else:
-                erros.append('Perfil inválido.')
-        elif not perfis:
-            # fallback pré-migração
-            perfil_str = request.form.get('perfil', 'colaborador')
-            if perfil_str not in ('colaborador', 'gestor', 'rh', 'diretoria'):
                 erros.append('Perfil inválido.')
 
         data_admissao = None
@@ -121,13 +145,14 @@ def novo():
                 flash(e, 'danger')
             return render_template('colaboradores/form.html',
                                    colab=None, equipes=equipes, gestores=gestores,
-                                   perfis=perfis, form=request.form)
+                                   perfis=perfis, funcoes=funcoes, form=request.form)
 
         senha_temp = _gerar_senha()
         c = Colaborador(
             nome=nome,
             email=email,
-            funcao=funcao,
+            funcao=funcao_str,
+            funcao_id=funcao_id,
             equipe_id=equipe_id,
             gestor_id=gestor_id,
             data_admissao=data_admissao,
@@ -137,7 +162,6 @@ def novo():
         )
         c.set_senha(senha_temp)
 
-        # Equipes gerenciadas (multi-equipe)
         equipe_ids = request.form.getlist('equipes_gerenciadas', type=int)
         if equipe_ids:
             c.equipes_gerenciadas = Equipe.query.filter(Equipe.id.in_(equipe_ids)).all()
@@ -154,7 +178,7 @@ def novo():
 
     return render_template('colaboradores/form.html',
                            colab=None, equipes=equipes, gestores=gestores,
-                           perfis=perfis, form={})
+                           perfis=perfis, funcoes=funcoes, form={})
 
 
 # ── Perfil ────────────────────────────────────────────────────────────────────
@@ -200,15 +224,16 @@ def editar(id):
     colab = Colaborador.query.get_or_404(id)
     equipes, gestores = _equipes_e_gestores()
     perfis = _perfis_disponiveis()
+    funcoes = _funcoes_disponiveis()
 
     if request.method == 'POST':
         nome = request.form.get('nome', '').strip().title()
         email = request.form.get('email', '').strip().lower()
-        funcao = request.form.get('funcao', '').strip().upper()
         equipe_id = request.form.get('equipe_id', type=int)
         gestor_id = request.form.get('gestor_id', type=int) or None
         admissao_s = request.form.get('data_admissao', '').strip()
         perfil_id = request.form.get('perfil_id', type=int)
+        funcao_id = request.form.get('funcao_id', type=int)
 
         erros = []
         if not nome:
@@ -222,14 +247,20 @@ def editar(id):
             ).first()
             if duplicado:
                 erros.append('E-mail já usado por outro colaborador.')
-        if not funcao:
-            erros.append('Função é obrigatória.')
         if not equipe_id:
             erros.append('Equipe é obrigatória.')
 
+        funcao_obj = None
+        if funcao_id:
+            funcao_obj = db.session.get(Funcao, funcao_id)
+            if not funcao_obj:
+                erros.append('Função inválida.')
+        else:
+            erros.append('Função é obrigatória.')
+
         perfil_obj = None
         if perfil_id:
-            perfil_obj = Perfil.query.get(perfil_id)
+            perfil_obj = db.session.get(Perfil, perfil_id)
             if not perfil_obj:
                 erros.append('Perfil inválido.')
 
@@ -245,23 +276,22 @@ def editar(id):
                 flash(e, 'danger')
             return render_template('colaboradores/form.html',
                                    colab=colab, equipes=equipes, gestores=gestores,
-                                   perfis=perfis, form=request.form)
+                                   perfis=perfis, funcoes=funcoes, form=request.form)
 
         colab.nome = nome
         colab.email = email
-        colab.funcao = funcao
         colab.equipe_id = equipe_id
         colab.gestor_id = gestor_id
         colab.data_admissao = data_admissao
 
+        if funcao_obj:
+            colab.funcao_id = funcao_obj.id
+            colab.funcao = funcao_obj.nome
+
         if perfil_obj:
             colab.perfil_id = perfil_obj.id
             colab.perfil = _PERFIL_STR.get(perfil_obj.nome, 'colaborador')
-        elif not perfis:
-            # fallback pré-migração
-            colab.perfil = request.form.get('perfil', colab.perfil)
 
-        # Equipes gerenciadas
         equipe_ids = request.form.getlist('equipes_gerenciadas', type=int)
         colab.equipes_gerenciadas = (
             Equipe.query.filter(Equipe.id.in_(equipe_ids)).all() if equipe_ids else []
@@ -273,7 +303,7 @@ def editar(id):
 
     return render_template('colaboradores/form.html',
                            colab=colab, equipes=equipes, gestores=gestores,
-                           perfis=perfis, form={})
+                           perfis=perfis, funcoes=funcoes, form={})
 
 
 # ── Desativação ───────────────────────────────────────────────────────────────

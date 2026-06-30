@@ -85,10 +85,21 @@
         </li>
         {% endif %}
 
-        {% if has_permission(current_user, 'configuracoes.perfis') %}
-        <li class="nav-item">
-          <a class="nav-link px-3 {% if request.blueprint == 'configuracoes' %}active{% endif %}"
-             href="{{ url_for('configuracoes.perfis') }}">Configurações</a>
+        {% if has_permission(current_user, 'configuracoes.perfis') or has_permission(current_user, 'configuracoes.equipes') %}
+        <li class="nav-item dropdown">
+          <a class="nav-link px-3 dropdown-toggle {% if request.blueprint == 'configuracoes' %}active{% endif %}"
+             href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            Configurações
+          </a>
+          <ul class="dropdown-menu shadow-sm border-0">
+            {% if has_permission(current_user, 'configuracoes.perfis') %}
+            <li><a class="dropdown-item" href="{{ url_for('configuracoes.perfis') }}">Perfis de acesso</a></li>
+            {% endif %}
+            {% if has_permission(current_user, 'configuracoes.equipes') %}
+            <li><a class="dropdown-item" href="{{ url_for('configuracoes.funcoes') }}">Funções / Cargos</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('configuracoes.equipes') }}">Equipes</a></li>
+            {% endif %}
+          </ul>
         </li>
         {% endif %}
 
@@ -173,5 +184,6 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+{% block scripts %}{% endblock %}
 </body>
 </html>

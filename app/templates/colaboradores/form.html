@@ -55,9 +55,17 @@
             <div class="row g-3 mb-3">
                 {# Função #}
                 <div class="col-sm-6">
-                    <label class="form-label fw-semibold" for="funcao">Função / Cargo</label>
-                    <input type="text" class="form-control" id="funcao" name="funcao"
-                           value="{{ val('funcao') }}" required>
+                    <label class="form-label fw-semibold" for="funcao_id">Função / Cargo</label>
+                    <select class="form-select" id="funcao_id" name="funcao_id" required>
+                        <option value="">Selecione...</option>
+                        {% for f in funcoes %}
+                        <option value="{{ f.id }}"
+                            {% if form and form.get('funcao_id') == f.id|string %}selected
+                            {% elif colab and colab.funcao_id == f.id %}selected{% endif %}>
+                            {{ f.nome }}
+                        </option>
+                        {% endfor %}
+                    </select>
                 </div>
 
                 {# Data de admissão #}
@@ -92,7 +100,7 @@
                         <option value="">Selecione...</option>
                         {% for p in perfis %}
                         {% set form_pid = form.get('perfil_id')|int if form and form.get('perfil_id') else 0 %}
-                        <option value="{{ p.id }}"
+                        <option value="{{ p.id }}" data-nome="{{ p.nome }}"
                             {% if form_pid and form_pid == p.id %}selected
                             {% elif colab and colab.perfil_id == p.id %}selected
                             {% elif not form and not colab and p.nome == 'Colaborador' %}selected{% endif %}>
@@ -108,21 +116,26 @@
                 </div>
             </div>
 
-            {# Equipes gerenciadas #}
+            {# Equipes gerenciadas — visível apenas para Gestor / Administrador #}
             <div class="mb-3" id="equipes-gerenciadas-container">
                 <label class="form-label fw-semibold">
                     Equipes gerenciadas
-                    <span class="text-muted fw-normal small">(apenas para Gestor)</span>
+                    <span class="text-muted fw-normal small">(apenas para Gestor / Administrador)</span>
                 </label>
-                <select name="equipes_gerenciadas" class="form-select" multiple size="5">
+                <div class="row row-cols-2 row-cols-md-3 g-1 p-2 border rounded bg-white">
                     {% for eq in equipes %}
-                    <option value="{{ eq.id }}"
-                        {% if colab and eq in colab.equipes_gerenciadas %}selected{% endif %}>
-                        {{ eq.nome }}
-                    </option>
+                    <div class="col">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox"
+                                   name="equipes_gerenciadas" value="{{ eq.id }}"
+                                   id="eq_{{ eq.id }}"
+                                   {% if colab and eq in colab.equipes_gerenciadas %}checked{% endif %}>
+                            <label class="form-check-label small" for="eq_{{ eq.id }}">{{ eq.nome }}</label>
+                        </div>
+                    </div>
                     {% endfor %}
-                </select>
-                <div class="form-text">Segure Ctrl/Cmd para selecionar múltiplas. Deixe vazio para gestor de equipe única.</div>
+                </div>
+                <div class="form-text">Deixe em branco para gestor de equipe única.</div>
             </div>
 
             {# Gestor #}
@@ -165,4 +178,27 @@
 
 </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var PERFIS_COM_EQUIPES = ['gestor', 'administrador'];
+    var selectPerfil = document.getElementById('perfil_id');
+    var container = document.getElementById('equipes-gerenciadas-container');
+
+    function atualizar() {
+        if (!selectPerfil || !container) return;
+        var opt = selectPerfil.options[selectPerfil.selectedIndex];
+        var nome = (opt ? (opt.getAttribute('data-nome') || '') : '').toLowerCase();
+        var mostrar = PERFIS_COM_EQUIPES.some(function(p) { return nome.indexOf(p) !== -1; });
+        container.style.display = mostrar ? '' : 'none';
+    }
+
+    if (selectPerfil) {
+        selectPerfil.addEventListener('change', atualizar);
+        atualizar();
+    }
+})();
+</script>
 {% endblock %}

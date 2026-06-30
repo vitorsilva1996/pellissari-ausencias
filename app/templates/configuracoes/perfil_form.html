@@ -32,7 +32,7 @@
             <div class="col-sm-6">
                 <label class="form-label fw-semibold" for="descricao">Descrição</label>
                 <input type="text" class="form-control" id="descricao" name="descricao"
-                       value="{{ perfil.descricao if perfil else form.get('descricao', '') }}"
+                       value="{{ perfil.descricao or '' if perfil else form.get('descricao', '') }}"
                        placeholder="Opcional">
             </div>
         </div>

@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block title %}{% if equipe %}Editar Equipe{% else %}Nova Equipe{% endif %}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-lg-5">
+
+<div class="d-flex align-items-center gap-2 mb-4">
+    <a href="{{ url_for('configuracoes.equipes') }}" class="text-muted text-decoration-none">← Equipes</a>
+    <span class="text-muted">/</span>
+    <span class="fw-semibold">{% if equipe %}{{ equipe.nome }}{% else %}Nova equipe{% endif %}</span>
+</div>
+
+<div class="card border-0 shadow-sm">
+<div class="card-body p-4">
+    <h5 class="fw-bold mb-4">{% if equipe %}Editar equipe{% else %}Nova equipe{% endif %}</h5>
+
+    <form method="POST"
+          action="{{ url_for('configuracoes.equipe_editar', id=equipe.id) if equipe else url_for('configuracoes.equipe_nova') }}"
+          novalidate>
+
+        <div class="mb-3">
+            <label class="form-label fw-semibold" for="nome">Nome da equipe</label>
+            <input type="text" class="form-control" id="nome" name="nome"
+                   value="{{ equipe.nome if equipe else form.get('nome', '') }}"
+                   required autofocus>
+        </div>
+
+        <div class="mb-4">
+            <label class="form-label fw-semibold" for="descricao">Descrição
+                <span class="text-muted fw-normal">(opcional)</span>
+            </label>
+            <input type="text" class="form-control" id="descricao" name="descricao"
+                   value="{{ equipe.descricao or '' if equipe else form.get('descricao', '') }}">
+        </div>
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">
+                {% if equipe %}Salvar{% else %}Criar{% endif %}
+            </button>
+            <a href="{{ url_for('configuracoes.equipes') }}" class="btn btn-outline-secondary">Cancelar</a>
+        </div>
+    </form>
+</div>
+</div>
+
+</div>
+</div>
+{% endblock %}

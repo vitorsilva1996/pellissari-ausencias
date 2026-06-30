@@ -74,6 +74,22 @@ def create_app(config_name=None):
     # ── Globals Jinja ─────────────────────────────────────────────────────────
     app.jinja_env.globals['timedelta'] = timedelta
 
+    # ── Filtro highlight: marca termo de busca em amarelo ────────────────────
+    import re as _re
+    from markupsafe import Markup as _Markup, escape as _escape
+
+    @app.template_filter('highlight')
+    def highlight_filter(text, termo):
+        if not termo:
+            return _escape(text)
+        pattern = _re.compile(_re.escape(termo), _re.IGNORECASE)
+        escaped = str(_escape(text))
+        result = pattern.sub(
+            lambda m: f'<mark class="px-0">{_escape(m.group(0))}</mark>',
+            escaped,
+        )
+        return _Markup(result)
+
     # ── Filtro de data em português ──────────────────────────────────────────
     _MESES_BR = [
         '', 'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
