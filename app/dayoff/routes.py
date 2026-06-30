@@ -102,7 +102,7 @@ def index():
 # ── Solicitação ───────────────────────────────────────────────────────────────
 
 @dayoff.route('/solicitar', methods=['GET', 'POST'])
-@login_required
+@require_permission('dayoff.solicitar')
 def solicitar():
     hoje = date.today()
     elegivel = current_user.pode_solicitar_dayoff()

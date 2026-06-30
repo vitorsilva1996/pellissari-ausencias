@@ -124,7 +124,7 @@ def index():
 # ── Solicitação ───────────────────────────────────────────────────────────────
 
 @ferias.route('/solicitar', methods=['GET', 'POST'])
-@login_required
+@require_permission('ferias.solicitar')
 def solicitar():
     periodos = (
         PeriodoAquisitivo.query
