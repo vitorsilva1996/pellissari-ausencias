@@ -58,8 +58,33 @@ def require_permission(codigo: str):
     return decorator
 
 
+def require_any_permission(*codigos: str):
+    """Decorator: exige login + ao menos uma das permissões informadas."""
+    def decorator(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            if not current_user.is_authenticated:
+                from flask import current_app
+                return current_app.login_manager.unauthorized()
+            if not any(has_permission(current_user, codigo) for codigo in codigos):
+                abort(403)
+            return f(*args, **kwargs)
+        return decorated
+    return decorator
+
+
 def get_user_equipes(user) -> list:
     """Retorna IDs das equipes que o usuário gerencia."""
     if getattr(user, 'equipes_gerenciadas', None):
         return [e.id for e in user.equipes_gerenciadas]
     return [user.equipe_id]
+
+
+def usuarios_com_permissao(codigo: str) -> list:
+    """Retorna colaboradores ativos que possuem a permissão informada
+    (via perfil customizado ou fallback legado por enum `perfil`)."""
+    from app.models import Colaborador
+    return [
+        c for c in Colaborador.query.filter_by(ativo=1).all()
+        if has_permission(c, codigo)
+    ]

@@ -5,7 +5,7 @@ from flask import render_template
 from flask_mail import Message
 
 from app import mail
-from app.models import Colaborador
+from app.auth.permissions import usuarios_com_permissao
 
 log = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ def enviar_notificacao_ferias_gestor(ferias):
 
 
 def enviar_notificacao_ferias_rh(ferias):
-    rhs = Colaborador.query.filter_by(perfil='rh', ativo=1).all()
+    rhs = usuarios_com_permissao('ferias.aprovar_2')
     emails = [c.email for c in rhs if c.email]
     if not emails:
         return
@@ -101,7 +101,7 @@ def enviar_lembrete_aprovacao(solicitacao, tipo):
     if tipo == 'ferias':
         aprovador = solicitacao.colaborador.gestor
         if solicitacao.status == 'aguardando_rh':
-            rhs = Colaborador.query.filter_by(perfil='rh', ativo=1).all()
+            rhs = usuarios_com_permissao('ferias.aprovar_2')
             emails = [c.email for c in rhs if c.email]
             if emails:
                 _enviar(

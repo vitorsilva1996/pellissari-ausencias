@@ -32,7 +32,7 @@
             <table class="table table-hover mb-0 align-middle">
                 <thead class="table-light">
                     <tr>
-                        {% if current_user.perfil in ('gestor', 'rh', 'diretoria') %}
+                        {% if has_permission(current_user, 'ferias.aprovar_1') or has_permission(current_user, 'ferias.aprovar_2') %}
                         <th>Colaborador</th>
                         <th>Equipe</th>
                         {% endif %}
@@ -47,7 +47,7 @@
                 <tbody>
                     {% for f in lista %}
                     <tr>
-                        {% if current_user.perfil in ('gestor', 'rh', 'diretoria') %}
+                        {% if has_permission(current_user, 'ferias.aprovar_1') or has_permission(current_user, 'ferias.aprovar_2') %}
                         <td>{{ f.colaborador.nome }}</td>
                         <td class="text-muted small">{{ f.colaborador.equipe.nome }}</td>
                         {% endif %}

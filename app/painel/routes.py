@@ -9,6 +9,7 @@ from app.models import (
     Colaborador, Equipe, PeriodoAquisitivo, Ferias, DayOff
 )
 from app.auth.permissions import has_permission, require_permission, get_user_equipes
+from app.ferias.routes import _pode_aprovar as _pode_aprovar_ferias
 
 # Ordem de prioridade: quanto maior, mais crítico
 _STATUS_PRIO = {
@@ -39,6 +40,17 @@ def _status_periodo(periodo, hoje):
     if ferias_futuras:
         return 'programado'
     return 'pendente'
+
+
+def _pode_aprovar_dayoff(d):
+    """Verifica se o usuário atual pode agir neste day off (mesma regra de app/dayoff/routes.py:aprovar)."""
+    if not has_permission(current_user, 'dayoff.aprovar'):
+        return False
+    if d.status != 'aguardando_gestor':
+        return False
+    if not has_permission(current_user, 'ferias.aprovar_2'):
+        return d.colaborador.equipe_id in get_user_equipes(current_user)
+    return True
 
 
 def _equipes_visiveis():
@@ -194,6 +206,7 @@ def _dados_painel(equipe_ids, hoje):
             'status': f.status,
             'id': f.id,
             'dias': f.dias,
+            'pode_aprovar': _pode_aprovar_ferias(f),
         })
     for d in pendentes_dayoff:
         pendentes_aprovacao.append({
@@ -203,6 +216,7 @@ def _dados_painel(equipe_ids, hoje):
             'status': d.status,
             'id': d.id,
             'dias': 1,
+            'pode_aprovar': _pode_aprovar_dayoff(d),
         })
     pendentes_aprovacao.sort(key=lambda x: x['data'])
 

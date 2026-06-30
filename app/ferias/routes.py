@@ -6,7 +6,10 @@ from flask_login import login_required, current_user
 from app.ferias import ferias
 from app.models import Ferias, PeriodoAquisitivo, Notificacao, Colaborador
 from app import db
-from app.auth.permissions import has_permission, require_permission, get_user_equipes
+from app.auth.permissions import (
+    has_permission, require_permission, require_any_permission,
+    get_user_equipes, usuarios_com_permissao,
+)
 from app.notificacoes.email import (
     enviar_notificacao_ferias_gestor,
     enviar_notificacao_ferias_rh,
@@ -221,7 +224,7 @@ def solicitar():
 # ── Aprovação / Reprovação ────────────────────────────────────────────────────
 
 @ferias.route('/aprovar/<int:id>', methods=['GET', 'POST'])
-@require_permission('ferias.aprovar_1')
+@require_any_permission('ferias.aprovar_1', 'ferias.aprovar_2')
 def aprovar(id):
     f = Ferias.query.get_or_404(id)
 
@@ -253,7 +256,7 @@ def aprovar(id):
                     f'Suas férias de {f.data_inicio.strftime("%d/%m/%Y")} foram aprovadas '
                     f'pelo gestor e seguem para análise do RH.',
                 )
-                for rh in Colaborador.query.filter_by(perfil='rh', ativo=1).all():
+                for rh in usuarios_com_permissao('ferias.aprovar_2'):
                     _criar_notificacao(
                         rh.id,
                         'ferias_aguardando_rh',

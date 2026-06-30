@@ -326,17 +326,13 @@
           </div>
         </div>
         {# Botão analisar — apenas para quem tem permissão #}
-        {% if item.tipo == 'ferias' %}
-          {% if (item.status == 'aguardando_gestor' and current_user.perfil == 'gestor' and item.colaborador.gestor_id == current_user.id)
-             or (item.status in ('aguardando_gestor','aguardando_rh') and current_user.perfil in ('rh','diretoria')) %}
+        {% if item.pode_aprovar %}
+          {% if item.tipo == 'ferias' %}
           <a href="{{ url_for('ferias.aprovar', id=item.id) }}"
              class="btn btn-sm btn-outline-primary flex-shrink-0" style="font-size:.7rem;padding:3px 10px">
             Analisar
           </a>
-          {% endif %}
-        {% else %}
-          {% if current_user.perfil == 'gestor' and item.colaborador.gestor_id == current_user.id
-             or current_user.perfil in ('rh','diretoria') %}
+          {% else %}
           <a href="{{ url_for('dayoff.aprovar', id=item.id) }}"
              class="btn btn-sm btn-outline-primary flex-shrink-0" style="font-size:.7rem;padding:3px 10px">
             Analisar
