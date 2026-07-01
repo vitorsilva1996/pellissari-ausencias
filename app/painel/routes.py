@@ -10,6 +10,7 @@ from app.models import (
 )
 from app.auth.permissions import has_permission, require_permission, get_user_equipes
 from app.ferias.routes import _pode_aprovar as _pode_aprovar_ferias
+from app.dayoff.routes import _pode_aprovar as _pode_aprovar_dayoff
 
 # Ordem de prioridade: quanto maior, mais crítico
 _STATUS_PRIO = {
@@ -20,6 +21,39 @@ _STATUS_PRIO = {
     'atencao':      3,
     'vencido':      4,
 }
+
+_STATUS_FILTRO_VALIDOS = frozenset({
+    'todos', 'pendente', 'programado', 'atencao', 'vencido', 'concluido', 'sem_periodo',
+})
+
+_SORT_COLUNAS_VALIDAS = frozenset({'colaborador', 'equipe', 'dias_restantes', 'limite', 'status'})
+
+
+def _ordenar_colab_rows(colab_rows, coluna, direcao):
+    """Ordena colab_rows pela coluna/direção pedidas; linhas sem período
+    aquisitivo sempre ficam ao final (para dias_restantes/limite)."""
+    reverso = direcao == 'desc'
+
+    if coluna == 'colaborador':
+        return sorted(colab_rows, key=lambda r: r['colaborador'].nome, reverse=reverso)
+    if coluna == 'equipe':
+        return sorted(colab_rows, key=lambda r: r['colaborador'].equipe.nome, reverse=reverso)
+    if coluna == 'status':
+        return sorted(colab_rows, key=lambda r: _STATUS_PRIO.get(r['status'], -1), reverse=reverso)
+
+    if coluna == 'dias_restantes':
+        def valor(r):
+            pp = r['periodo_princ']
+            return pp['restantes'] if pp else None
+    else:  # 'limite'
+        def valor(r):
+            pp = r['periodo_princ']
+            return pp['periodo'].data_limite_saida if pp else None
+
+    com_valor = [r for r in colab_rows if valor(r) is not None]
+    sem_valor = [r for r in colab_rows if valor(r) is None]
+    com_valor.sort(key=valor, reverse=reverso)
+    return com_valor + sem_valor
 
 
 def _status_periodo(periodo, hoje):
@@ -40,17 +74,6 @@ def _status_periodo(periodo, hoje):
     if ferias_futuras:
         return 'programado'
     return 'pendente'
-
-
-def _pode_aprovar_dayoff(d):
-    """Verifica se o usuário atual pode agir neste day off (mesma regra de app/dayoff/routes.py:aprovar)."""
-    if not has_permission(current_user, 'dayoff.aprovar'):
-        return False
-    if d.status != 'aguardando_gestor':
-        return False
-    if not has_permission(current_user, 'ferias.aprovar_2'):
-        return d.colaborador.equipe_id in get_user_equipes(current_user)
-    return True
 
 
 def _equipes_visiveis():
@@ -316,10 +339,29 @@ def colaboradores():
             pass
 
     dados = _dados_painel(equipe_ids, hoje)
+
+    status_filtro = request.args.get('status', 'todos')
+    if status_filtro not in _STATUS_FILTRO_VALIDOS:
+        status_filtro = 'todos'
+    colab_rows = dados['colab_rows']
+    if status_filtro != 'todos':
+        colab_rows = [r for r in colab_rows if r['status'] == status_filtro]
+
+    sort_col = request.args.get('sort', 'colaborador')
+    if sort_col not in _SORT_COLUNAS_VALIDAS:
+        sort_col = 'colaborador'
+    sort_dir = request.args.get('dir', 'asc')
+    if sort_dir not in ('asc', 'desc'):
+        sort_dir = 'asc'
+    dados['colab_rows'] = _ordenar_colab_rows(colab_rows, sort_col, sort_dir)
+
     return render_template(
         'painel/colaboradores.html',
         equipes=equipes,
         equipe_filtro=equipe_filtro,
+        status_filtro=status_filtro,
+        sort_col=sort_col,
+        sort_dir=sort_dir,
         **dados,
     )
 

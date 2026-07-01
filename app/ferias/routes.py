@@ -4,12 +4,13 @@ from flask import render_template, redirect, url_for, request, flash, abort
 from flask_login import login_required, current_user
 
 from app.ferias import ferias
-from app.models import Ferias, PeriodoAquisitivo, Notificacao, Colaborador
+from app.models import Ferias, PeriodoAquisitivo, Notificacao, Colaborador, Equipe
 from app import db
 from app.auth.permissions import (
     has_permission, require_permission, require_any_permission,
     get_user_equipes, usuarios_com_permissao,
 )
+from app.utils import ler_ordenacao
 from app.notificacoes.email import (
     enviar_notificacao_ferias_gestor,
     enviar_notificacao_ferias_rh,
@@ -63,13 +64,58 @@ def _pode_aprovar(f):
 
 # ── Listagem ──────────────────────────────────────────────────────────────────
 
+_STATUS_EQUIPE_FILTROS = frozenset({'todos', 'aguardando', 'aprovada', 'reprovada', 'cancelada'})
+
+_SORT_MINHAS = {
+    'solicitado_em': Ferias.solicitado_em,
+    'inicio':        Ferias.data_inicio,
+    'status':        Ferias.status,
+}
+
+_SORT_EQUIPE = {
+    'solicitado_em': Ferias.solicitado_em,
+    'nome':          Colaborador.nome,
+    'equipe':        Equipe.nome,
+    'inicio':        Ferias.data_inicio,
+    'status':        Ferias.status,
+}
+
+
+def _solicitacoes_equipe(status_filtro, sort_col, sort_dir):
+    """Todas as férias visíveis para o aprovador (gestor: equipes gerenciadas;
+    RH/Administrador: todas), com o status filtrado, ordenadas, e a
+    permissão de agir por item."""
+    pode_aprovar_2 = has_permission(current_user, 'ferias.aprovar_2')
+    pode_aprovar_1 = has_permission(current_user, 'ferias.aprovar_1')
+    if not (pode_aprovar_1 or pode_aprovar_2):
+        return None
+
+    q = Ferias.query.join(Colaborador).join(Equipe, Colaborador.equipe_id == Equipe.id)
+    if not pode_aprovar_2:
+        equipe_ids = get_user_equipes(current_user)
+        q = q.filter(Colaborador.equipe_id.in_(equipe_ids))
+
+    if status_filtro == 'aguardando':
+        q = q.filter(Ferias.status.in_(['aguardando_gestor', 'aguardando_rh']))
+    elif status_filtro in ('aprovada', 'reprovada', 'cancelada'):
+        q = q.filter(Ferias.status == status_filtro)
+
+    coluna = _SORT_EQUIPE[sort_col]
+    q = q.order_by(coluna.desc() if sort_dir == 'desc' else coluna.asc())
+
+    lista = q.all()
+    return [{'ferias': f, 'pode_aprovar': _pode_aprovar(f)} for f in lista]
+
+
 @ferias.route('/')
 @login_required
 def index():
+    sort_minhas_col, sort_minhas_dir = ler_ordenacao('minhas', _SORT_MINHAS, 'solicitado_em')
+    coluna_minhas = _SORT_MINHAS[sort_minhas_col]
     minhas = (
         Ferias.query
         .filter_by(colaborador_id=current_user.id)
-        .order_by(Ferias.solicitado_em.desc())
+        .order_by(coluna_minhas.desc() if sort_minhas_dir == 'desc' else coluna_minhas.asc())
         .all()
     )
 
@@ -97,6 +143,12 @@ def index():
             .all()
         )
 
+    status_equipe_filtro = request.args.get('status_equipe', 'todos')
+    if status_equipe_filtro not in _STATUS_EQUIPE_FILTROS:
+        status_equipe_filtro = 'todos'
+    sort_equipe_col, sort_equipe_dir = ler_ordenacao('equipe', _SORT_EQUIPE, 'solicitado_em')
+    solicitacoes_equipe = _solicitacoes_equipe(status_equipe_filtro, sort_equipe_col, sort_equipe_dir)
+
     hoje = date.today()
     periodos = (
         PeriodoAquisitivo.query
@@ -121,7 +173,9 @@ def index():
     return render_template('ferias/index.html',
                            minhas=minhas,
                            pendentes=pendentes,
-                           periodos_info=periodos_info)
+                           periodos_info=periodos_info,
+                           solicitacoes_equipe=solicitacoes_equipe,
+                           status_equipe_filtro=status_equipe_filtro)
 
 
 # ── Solicitação ───────────────────────────────────────────────────────────────

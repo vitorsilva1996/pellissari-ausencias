@@ -14,6 +14,24 @@
   {% endif %}
 {% endmacro %}
 
+{# ── Macro de cabeçalho ordenável (prefixo distingue as tabelas: meus / equipe) ── #}
+{% macro th_sort(coluna, label, prefixo) %}
+  {% set sort_atual = request.args.get('sort_' ~ prefixo, 'solicitado_em') %}
+  {% set dir_atual = request.args.get('dir_' ~ prefixo, 'desc') %}
+  {% set novo_dir = 'desc' if sort_atual == coluna and dir_atual == 'asc' else 'asc' %}
+  {% set params = request.args.to_dict() %}
+  {% set _ = params.update({('sort_' ~ prefixo): coluna, ('dir_' ~ prefixo): novo_dir}) %}
+  <a href="{{ url_for('dayoff.index', **params) }}"
+     class="text-decoration-none text-reset d-inline-flex align-items-center gap-1">
+    {{ label }}
+    {% if sort_atual == coluna %}
+    <span style="font-size:10px">{{ '▲' if dir_atual == 'asc' else '▼' }}</span>
+    {% else %}
+    <span style="font-size:10px;opacity:.3">⇕</span>
+    {% endif %}
+  </a>
+{% endmacro %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2 class="fw-bold mb-0">Day Off</h2>
@@ -107,7 +125,7 @@
 {% endif %}
 
 {# ── Meus day offs ── #}
-<div class="card border-0 shadow-sm">
+<div class="card border-0 shadow-sm mb-4">
     <div class="card-header bg-white border-0 pt-3 pb-0">
         <h6 class="fw-semibold mb-0">Meus day offs</h6>
     </div>
@@ -116,14 +134,14 @@
         <p class="text-muted p-4 mb-0">Nenhuma solicitação encontrada.</p>
         {% else %}
         <div class="table-responsive">
-            <table class="table table-hover mb-0 align-middle">
+            <table class="table table-hover mb-0 align-middle" data-paginate="dayoff-meus-pg">
                 <thead class="table-light">
                     <tr>
-                        <th>Data solicitada</th>
+                        <th>{{ th_sort('data_solicitada', 'Data solicitada', 'meus') }}</th>
                         <th>Mês ref.</th>
-                        <th>Status</th>
+                        <th>{{ th_sort('status', 'Status', 'meus') }}</th>
                         <th>Comentário</th>
-                        <th>Solicitado em</th>
+                        <th>{{ th_sort('solicitado_em', 'Solicitado em', 'meus') }}</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -149,7 +167,78 @@
                 </tbody>
             </table>
         </div>
+        <div id="dayoff-meus-pg" class="px-3 py-2 border-top"></div>
         {% endif %}
     </div>
 </div>
+
+{# ── Solicitações da equipe (visão gerencial) ── #}
+{% if solicitacoes_equipe is not none %}
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white border-0 pt-3 pb-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h6 class="mb-0 fw-semibold">Solicitações da equipe</h6>
+        <form method="GET" action="{{ url_for('dayoff.index') }}" class="mb-0">
+            <select name="status_equipe" class="form-select form-select-sm" style="min-width:170px" onchange="this.form.submit()">
+                <option value="todos" {% if status_equipe_filtro == 'todos' %}selected{% endif %}>Todos os status</option>
+                <option value="aguardando" {% if status_equipe_filtro == 'aguardando' %}selected{% endif %}>Aguardando</option>
+                <option value="aprovado" {% if status_equipe_filtro == 'aprovado' %}selected{% endif %}>Aprovado</option>
+                <option value="reprovado" {% if status_equipe_filtro == 'reprovado' %}selected{% endif %}>Reprovado</option>
+                <option value="cancelado" {% if status_equipe_filtro == 'cancelado' %}selected{% endif %}>Cancelado</option>
+            </select>
+        </form>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle" data-paginate="dayoff-equipe-pg">
+            <thead class="table-light">
+                <tr>
+                    <th>{{ th_sort('nome', 'Colaborador', 'equipe') }}</th>
+                    <th>{{ th_sort('equipe', 'Equipe', 'equipe') }}</th>
+                    <th>{{ th_sort('data_solicitada', 'Data solicitada', 'equipe') }}</th>
+                    <th>Mês ref.</th>
+                    <th>{{ th_sort('status', 'Status', 'equipe') }}</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in solicitacoes_equipe %}
+                {% set d = item.dayoff %}
+                <tr>
+                    <td>{{ d.colaborador.nome }}</td>
+                    <td class="text-muted small">{{ d.colaborador.equipe.nome }}</td>
+                    <td>{{ d.data_solicitada.strftime('%d/%m/%Y') }}</td>
+                    <td class="text-muted small">{{ d.mes_referencia.strftime('%m/%Y') }}</td>
+                    <td>{{ badge_status(d.status) }}</td>
+                    <td class="text-end">
+                        {% if item.pode_aprovar %}
+                        <div class="d-flex gap-1 justify-content-end">
+                            <form method="POST" action="{{ url_for('dayoff.aprovar', id=d.id) }}"
+                                  onsubmit="return confirm('Aprovar o day off de {{ d.colaborador.nome }}?')">
+                                <input type="hidden" name="acao" value="aprovar">
+                                <button type="submit" class="btn btn-sm btn-outline-success">Aprovar</button>
+                            </form>
+                            <form method="POST" action="{{ url_for('dayoff.aprovar', id=d.id) }}"
+                                  onsubmit="return confirm('Reprovar o day off de {{ d.colaborador.nome }}?')">
+                                <input type="hidden" name="acao" value="reprovar">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Reprovar</button>
+                            </form>
+                            <a href="{{ url_for('dayoff.aprovar', id=d.id) }}" class="btn btn-sm btn-outline-secondary">Detalhes</a>
+                        </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr data-empty="1">
+                    <td colspan="6" class="text-center text-muted py-4">Nenhuma solicitação encontrada.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div id="dayoff-equipe-pg" class="px-3 py-2 border-top"></div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/table-paginate.js') }}"></script>
 {% endblock %}

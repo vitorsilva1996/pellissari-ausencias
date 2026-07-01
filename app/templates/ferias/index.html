@@ -16,6 +16,24 @@
   {% endif %}
 {% endmacro %}
 
+{# ── Macro de cabeçalho ordenável (prefixo distingue as tabelas: minhas / equipe) ── #}
+{% macro th_sort(coluna, label, prefixo) %}
+  {% set sort_atual = request.args.get('sort_' ~ prefixo, 'solicitado_em') %}
+  {% set dir_atual = request.args.get('dir_' ~ prefixo, 'desc') %}
+  {% set novo_dir = 'desc' if sort_atual == coluna and dir_atual == 'asc' else 'asc' %}
+  {% set params = request.args.to_dict() %}
+  {% set _ = params.update({('sort_' ~ prefixo): coluna, ('dir_' ~ prefixo): novo_dir}) %}
+  <a href="{{ url_for('ferias.index', **params) }}"
+     class="text-decoration-none text-reset d-inline-flex align-items-center gap-1">
+    {{ label }}
+    {% if sort_atual == coluna %}
+    <span style="font-size:10px">{{ '▲' if dir_atual == 'asc' else '▼' }}</span>
+    {% else %}
+    <span style="font-size:10px;opacity:.3">⇕</span>
+    {% endif %}
+  </a>
+{% endmacro %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2 class="fw-bold mb-0">Férias</h2>
@@ -125,7 +143,7 @@
 {% endif %}
 
 {# ── Minhas solicitações ── #}
-<div class="card border-0 shadow-sm">
+<div class="card border-0 shadow-sm mb-4">
     <div class="card-header bg-white border-0 pt-3 pb-0">
         <h6 class="fw-semibold mb-0">Minhas solicitações</h6>
     </div>
@@ -134,21 +152,21 @@
         <p class="text-muted p-4 mb-0">Você ainda não fez nenhuma solicitação de férias.</p>
         {% else %}
         <div class="table-responsive">
-            <table class="table table-hover mb-0 align-middle">
+            <table class="table table-hover mb-0 align-middle" data-paginate="ferias-minhas-pg">
                 <thead class="table-light">
                     <tr>
                         <th>Período aquisitivo</th>
-                        <th>Início</th>
+                        <th>{{ th_sort('inicio', 'Início', 'minhas') }}</th>
                         <th>Dias</th>
                         <th>Retorno</th>
-                        <th>Status</th>
-                        <th>Solicitado em</th>
+                        <th>{{ th_sort('status', 'Status', 'minhas') }}</th>
+                        <th>{{ th_sort('solicitado_em', 'Solicitado em', 'minhas') }}</th>
                         <th></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for f in minhas %}
-                    <tr>
+                    <tr data-item="{{ loop.index }}">
                         <td class="small text-muted">
                             {{ f.periodo_aquisitivo.data_inicio.strftime('%d/%m/%Y') }}
                             –
@@ -170,7 +188,7 @@
                         </td>
                     </tr>
                     {% if f.comentario_gestor or f.comentario_rh %}
-                    <tr class="table-light">
+                    <tr class="table-light" data-item="{{ loop.index }}">
                         <td colspan="7" class="small text-muted pb-2 pt-0 px-3">
                             {% if f.comentario_gestor %}
                             <span class="fw-semibold">Gestor:</span> {{ f.comentario_gestor }}
@@ -186,7 +204,80 @@
                 </tbody>
             </table>
         </div>
+        <div id="ferias-minhas-pg" class="px-3 py-2 border-top"></div>
         {% endif %}
     </div>
 </div>
+
+{# ── Solicitações da equipe (visão gerencial) ── #}
+{% if solicitacoes_equipe is not none %}
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white border-0 pt-3 pb-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h6 class="mb-0 fw-semibold">Solicitações da equipe</h6>
+        <form method="GET" action="{{ url_for('ferias.index') }}" class="mb-0">
+            <select name="status_equipe" class="form-select form-select-sm" style="min-width:170px" onchange="this.form.submit()">
+                <option value="todos" {% if status_equipe_filtro == 'todos' %}selected{% endif %}>Todos os status</option>
+                <option value="aguardando" {% if status_equipe_filtro == 'aguardando' %}selected{% endif %}>Aguardando</option>
+                <option value="aprovada" {% if status_equipe_filtro == 'aprovada' %}selected{% endif %}>Aprovada</option>
+                <option value="reprovada" {% if status_equipe_filtro == 'reprovada' %}selected{% endif %}>Reprovada</option>
+                <option value="cancelada" {% if status_equipe_filtro == 'cancelada' %}selected{% endif %}>Cancelada</option>
+            </select>
+        </form>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle" data-paginate="ferias-equipe-pg">
+            <thead class="table-light">
+                <tr>
+                    <th>{{ th_sort('nome', 'Colaborador', 'equipe') }}</th>
+                    <th>{{ th_sort('equipe', 'Equipe', 'equipe') }}</th>
+                    <th>{{ th_sort('inicio', 'Início', 'equipe') }}</th>
+                    <th>Dias</th>
+                    <th>Retorno</th>
+                    <th>{{ th_sort('status', 'Status', 'equipe') }}</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in solicitacoes_equipe %}
+                {% set f = item.ferias %}
+                <tr>
+                    <td>{{ f.colaborador.nome }}</td>
+                    <td class="text-muted small">{{ f.colaborador.equipe.nome }}</td>
+                    <td>{{ f.data_inicio.strftime('%d/%m/%Y') }}</td>
+                    <td>{{ f.dias }}</td>
+                    <td>{{ f.data_retorno.strftime('%d/%m/%Y') }}</td>
+                    <td>{{ badge_status(f.status) }}</td>
+                    <td class="text-end">
+                        {% if item.pode_aprovar %}
+                        <div class="d-flex gap-1 justify-content-end">
+                            <form method="POST" action="{{ url_for('ferias.aprovar', id=f.id) }}"
+                                  onsubmit="return confirm('Aprovar as férias de {{ f.colaborador.nome }}?')">
+                                <input type="hidden" name="acao" value="aprovar">
+                                <button type="submit" class="btn btn-sm btn-outline-success">Aprovar</button>
+                            </form>
+                            <form method="POST" action="{{ url_for('ferias.aprovar', id=f.id) }}"
+                                  onsubmit="return confirm('Reprovar as férias de {{ f.colaborador.nome }}?')">
+                                <input type="hidden" name="acao" value="reprovar">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Reprovar</button>
+                            </form>
+                            <a href="{{ url_for('ferias.aprovar', id=f.id) }}" class="btn btn-sm btn-outline-secondary">Detalhes</a>
+                        </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr data-empty="1">
+                    <td colspan="7" class="text-center text-muted py-4">Nenhuma solicitação encontrada.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div id="ferias-equipe-pg" class="px-3 py-2 border-top"></div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/table-paginate.js') }}"></script>
 {% endblock %}

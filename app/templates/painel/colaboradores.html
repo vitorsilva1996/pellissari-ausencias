@@ -18,6 +18,20 @@
   {% endif %}
 {% endmacro %}
 
+{# ── Macro de cabeçalho ordenável ── #}
+{% macro th_sort(coluna, label) %}
+  {% set novo_dir = 'desc' if sort_col == coluna and sort_dir == 'asc' else 'asc' %}
+  <a href="{{ url_for('painel.colaboradores', equipe=equipe_filtro, status=status_filtro, sort=coluna, dir=novo_dir) }}"
+     class="text-decoration-none text-reset d-inline-flex align-items-center gap-1">
+    {{ label }}
+    {% if sort_col == coluna %}
+    <span style="font-size:10px">{{ '▲' if sort_dir == 'asc' else '▼' }}</span>
+    {% else %}
+    <span style="font-size:10px;opacity:.3">⇕</span>
+    {% endif %}
+  </a>
+{% endmacro %}
+
 {% block content %}
 <style>
   body { background: #F4F4F5 !important; }
@@ -47,8 +61,11 @@
   </div>
   <div class="d-flex align-items-center gap-2 flex-wrap">
 
-    {% if equipes | length > 1 %}
-    <form method="get" action="{{ url_for('painel.colaboradores') }}" class="mb-0">
+    <form method="get" action="{{ url_for('painel.colaboradores') }}" class="d-flex align-items-center gap-2 mb-0 flex-wrap">
+      <input type="hidden" name="sort" value="{{ sort_col }}">
+      <input type="hidden" name="dir" value="{{ sort_dir }}">
+
+      {% if equipes | length > 1 %}
       <select name="equipe" class="form-select form-select-sm"
               style="min-width:180px" onchange="this.form.submit()">
         <option value="todas" {% if equipe_filtro == 'todas' %}selected{% endif %}>Todas as equipes</option>
@@ -56,8 +73,19 @@
         <option value="{{ eq.id }}" {% if equipe_filtro == eq.id|string %}selected{% endif %}>{{ eq.nome }}</option>
         {% endfor %}
       </select>
+      {% endif %}
+
+      <select name="status" class="form-select form-select-sm"
+              style="min-width:160px" onchange="this.form.submit()">
+        <option value="todos" {% if status_filtro == 'todos' %}selected{% endif %}>Todos os status</option>
+        <option value="pendente" {% if status_filtro == 'pendente' %}selected{% endif %}>Pendente</option>
+        <option value="programado" {% if status_filtro == 'programado' %}selected{% endif %}>Programado</option>
+        <option value="atencao" {% if status_filtro == 'atencao' %}selected{% endif %}>Atenção</option>
+        <option value="vencido" {% if status_filtro == 'vencido' %}selected{% endif %}>Vencido</option>
+        <option value="concluido" {% if status_filtro == 'concluido' %}selected{% endif %}>Concluído</option>
+        <option value="sem_periodo" {% if status_filtro == 'sem_periodo' %}selected{% endif %}>Sem período</option>
+      </select>
     </form>
-    {% endif %}
 
     <div class="dropdown">
       <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
@@ -104,19 +132,22 @@
   {% if not colab_rows %}
   <div class="p-4 text-center text-muted">
     <div style="font-size:2rem">👥</div>
-    <p class="mb-0 mt-2">Nenhum colaborador encontrado.</p>
+    <p class="mb-0 mt-2">
+      {% if status_filtro != 'todos' %}Nenhum colaborador encontrado com esse status.
+      {% else %}Nenhum colaborador encontrado.{% endif %}
+    </p>
   </div>
   {% else %}
   <div class="table-responsive">
     <table class="table table-hover mb-0 align-middle">
       <thead class="table-light">
         <tr>
-          <th>Colaborador</th>
-          <th>Equipe</th>
+          <th>{{ th_sort('colaborador', 'Colaborador') }}</th>
+          <th>{{ th_sort('equipe', 'Equipe') }}</th>
           <th>Período aquisitivo</th>
-          <th class="text-center">Dias restantes</th>
-          <th>Limite de saída</th>
-          <th>Status</th>
+          <th class="text-center">{{ th_sort('dias_restantes', 'Dias restantes') }}</th>
+          <th>{{ th_sort('limite', 'Limite de saída') }}</th>
+          <th>{{ th_sort('status', 'Status') }}</th>
         </tr>
       </thead>
       <tbody>

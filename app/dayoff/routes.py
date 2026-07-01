@@ -6,9 +6,10 @@ from flask import render_template, redirect, url_for, request, flash, abort
 from flask_login import login_required, current_user
 
 from app.dayoff import dayoff
-from app.models import DayOff, Notificacao, Colaborador
+from app.models import DayOff, Notificacao, Colaborador, Equipe
 from app import db
 from app.auth.permissions import has_permission, require_permission, get_user_equipes
+from app.utils import ler_ordenacao
 from app.notificacoes.email import (
     enviar_notificacao_dayoff_gestor,
     enviar_notificacao_dayoff_colaborador,
@@ -61,6 +62,58 @@ def _conflitos_equipe(colaborador, data_solicitada, excluir_id=None):
     return conflitos
 
 
+def _pode_aprovar(d):
+    """Verifica se o usuário atual pode agir neste day off."""
+    if not has_permission(current_user, 'dayoff.aprovar'):
+        return False
+    if d.status != 'aguardando_gestor':
+        return False
+    if not has_permission(current_user, 'ferias.aprovar_2'):
+        return d.colaborador.equipe_id in get_user_equipes(current_user)
+    return True
+
+
+_STATUS_EQUIPE_FILTROS = frozenset({'todos', 'aguardando', 'aprovado', 'reprovado', 'cancelado'})
+
+_SORT_MEUS = {
+    'solicitado_em':   DayOff.solicitado_em,
+    'data_solicitada': DayOff.data_solicitada,
+    'status':          DayOff.status,
+}
+
+_SORT_EQUIPE = {
+    'solicitado_em':   DayOff.solicitado_em,
+    'nome':            Colaborador.nome,
+    'equipe':          Equipe.nome,
+    'data_solicitada': DayOff.data_solicitada,
+    'status':          DayOff.status,
+}
+
+
+def _solicitacoes_equipe(status_filtro, sort_col, sort_dir):
+    """Todos os day offs visíveis para o aprovador (gestor: equipes gerenciadas;
+    RH/Administrador: todos), com o status filtrado, ordenados, e a
+    permissão de agir por item."""
+    if not has_permission(current_user, 'dayoff.aprovar'):
+        return None
+
+    q = DayOff.query.join(Colaborador).join(Equipe, Colaborador.equipe_id == Equipe.id)
+    if not has_permission(current_user, 'ferias.aprovar_2'):
+        equipe_ids = get_user_equipes(current_user)
+        q = q.filter(Colaborador.equipe_id.in_(equipe_ids))
+
+    if status_filtro == 'aguardando':
+        q = q.filter(DayOff.status == 'aguardando_gestor')
+    elif status_filtro in ('aprovado', 'reprovado', 'cancelado'):
+        q = q.filter(DayOff.status == status_filtro)
+
+    coluna = _SORT_EQUIPE[sort_col]
+    q = q.order_by(coluna.desc() if sort_dir == 'desc' else coluna.asc())
+
+    lista = q.all()
+    return [{'dayoff': d, 'pode_aprovar': _pode_aprovar(d)} for d in lista]
+
+
 # ── Listagem ──────────────────────────────────────────────────────────────────
 
 @dayoff.route('/')
@@ -69,10 +122,12 @@ def index():
     hoje = date.today()
     usado, saldo = _saldo_mes(current_user.id)
 
+    sort_meus_col, sort_meus_dir = ler_ordenacao('meus', _SORT_MEUS, 'solicitado_em')
+    coluna_meus = _SORT_MEUS[sort_meus_col]
     meus = (
         DayOff.query
         .filter_by(colaborador_id=current_user.id)
-        .order_by(DayOff.solicitado_em.desc())
+        .order_by(coluna_meus.desc() if sort_meus_dir == 'desc' else coluna_meus.asc())
         .all()
     )
 
@@ -83,6 +138,12 @@ def index():
             equipe_ids = get_user_equipes(current_user)
             q = q.filter(Colaborador.equipe_id.in_(equipe_ids))
         pendentes = q.order_by(DayOff.solicitado_em.asc()).all()
+
+    status_equipe_filtro = request.args.get('status_equipe', 'todos')
+    if status_equipe_filtro not in _STATUS_EQUIPE_FILTROS:
+        status_equipe_filtro = 'todos'
+    sort_equipe_col, sort_equipe_dir = ler_ordenacao('equipe', _SORT_EQUIPE, 'solicitado_em')
+    solicitacoes_equipe = _solicitacoes_equipe(status_equipe_filtro, sort_equipe_col, sort_equipe_dir)
 
     data_elegibilidade = None
     if not current_user.pode_solicitar_dayoff():
@@ -96,6 +157,8 @@ def index():
         usado=usado,
         mes_atual=hoje,
         data_elegibilidade=data_elegibilidade,
+        solicitacoes_equipe=solicitacoes_equipe,
+        status_equipe_filtro=status_equipe_filtro,
     )
 
 

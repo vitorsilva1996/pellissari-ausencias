@@ -2,53 +2,83 @@
 
 {% block title %}Colaboradores{% endblock %}
 
+{# ── Macro de cabeçalho ordenável ── #}
+{% macro th_sort(coluna, label) %}
+  {% set novo_dir = 'desc' if sort_col == coluna and sort_dir == 'asc' else 'asc' %}
+  <a href="{{ url_for('colaboradores.index', q=busca, status=status_filtro, equipe=equipe_filtro, perfil=perfil_filtro, sort=coluna, dir=novo_dir) }}"
+     class="text-decoration-none text-reset d-inline-flex align-items-center gap-1">
+    {{ label }}
+    {% if sort_col == coluna %}
+    <span style="font-size:10px">{{ '▲' if sort_dir == 'asc' else '▼' }}</span>
+    {% else %}
+    <span style="font-size:10px;opacity:.3">⇕</span>
+    {% endif %}
+  </a>
+{% endmacro %}
+
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
     <div>
         <h2 class="fw-bold mb-0">Colaboradores</h2>
         <p class="text-muted small mb-0">
             {{ lista|length }} registro(s) encontrado(s)
-            {% if mostrar_inativos %} — incluindo inativos{% endif %}
         </p>
     </div>
 
-    <form method="GET" action="{{ url_for('colaboradores.index') }}"
-          class="d-flex align-items-center gap-2 flex-wrap">
-        {% if mostrar_inativos %}
-        <input type="hidden" name="inativos" value="1">
-        {% endif %}
-
-        <div class="input-group input-group-sm" style="width:320px;max-width:100%">
-            <input type="text" class="form-control" name="q"
-                   value="{{ busca }}"
-                   placeholder="Buscar por nome, e-mail, equipe ou função..."
-                   style="padding-top:.25rem;padding-bottom:.25rem">
-            {% if busca %}
-            <a href="{{ url_for('colaboradores.index', inativos='1' if mostrar_inativos else none) }}"
-               class="btn btn-outline-secondary btn-sm" title="Limpar busca">✕</a>
-            {% endif %}
-        </div>
-
-        <a href="{{ url_for('colaboradores.index', inativos='0' if mostrar_inativos else '1', q=busca if busca else none) }}"
-           class="btn btn-outline-secondary btn-sm text-nowrap">
-            {% if mostrar_inativos %}Ocultar inativos{% else %}Mostrar inativos{% endif %}
-        </a>
-        <a href="{{ url_for('colaboradores.novo') }}" class="btn btn-primary btn-sm text-nowrap">
-            + Novo colaborador
-        </a>
-    </form>
+    <a href="{{ url_for('colaboradores.novo') }}" class="btn btn-primary btn-sm text-nowrap">
+        + Novo colaborador
+    </a>
 </div>
+
+<form method="GET" action="{{ url_for('colaboradores.index') }}"
+      class="d-flex align-items-center gap-2 flex-wrap mb-3">
+    <input type="hidden" name="sort" value="{{ sort_col }}">
+    <input type="hidden" name="dir" value="{{ sort_dir }}">
+
+    <div class="input-group input-group-sm" style="max-width:250px">
+        <input type="text" class="form-control" name="q"
+               value="{{ busca }}"
+               placeholder="Buscar por nome, e-mail, equipe ou função..."
+               style="padding-top:.25rem;padding-bottom:.25rem">
+        {% if busca %}
+        <a href="{{ url_for('colaboradores.index', status=status_filtro, equipe=equipe_filtro, perfil=perfil_filtro, sort=sort_col, dir=sort_dir) }}"
+           class="btn btn-outline-secondary btn-sm" title="Limpar busca">✕</a>
+        {% endif %}
+    </div>
+
+    <select name="equipe" class="form-select form-select-sm" style="max-width:160px" onchange="this.form.submit()">
+        <option value="todas" {% if equipe_filtro == 'todas' %}selected{% endif %}>Todas as equipes</option>
+        {% for eq in equipes %}
+        <option value="{{ eq.id }}" {% if equipe_filtro == eq.id|string %}selected{% endif %}>{{ eq.nome }}</option>
+        {% endfor %}
+    </select>
+
+    <select name="perfil" class="form-select form-select-sm" style="max-width:160px" onchange="this.form.submit()">
+        <option value="todos" {% if perfil_filtro == 'todos' %}selected{% endif %}>Todos os perfis</option>
+        {% for p in perfis %}
+        <option value="{{ p.id }}" {% if perfil_filtro == p.id|string %}selected{% endif %}>{{ p.nome }}</option>
+        {% endfor %}
+    </select>
+
+    <select name="status" class="form-select form-select-sm" style="max-width:160px" onchange="this.form.submit()">
+        <option value="ativo" {% if status_filtro == 'ativo' %}selected{% endif %}>Ativos</option>
+        <option value="inativo" {% if status_filtro == 'inativo' %}selected{% endif %}>Inativos</option>
+        <option value="todos" {% if status_filtro == 'todos' %}selected{% endif %}>Todos</option>
+    </select>
+
+    <button type="submit" class="btn btn-outline-secondary btn-sm">Filtrar</button>
+</form>
 
 <div class="card border-0 shadow-sm">
     <div class="table-responsive">
-        <table class="table table-hover mb-0 align-middle">
+        <table class="table table-hover mb-0 align-middle" data-paginate="colaboradores-pg" data-page-size="10">
             <thead class="table-light">
                 <tr>
-                    <th>Nome</th>
+                    <th>{{ th_sort('nome', 'Nome') }}</th>
                     <th>E-mail</th>
-                    <th>Equipe</th>
-                    <th>Função</th>
-                    <th>Admissão</th>
+                    <th>{{ th_sort('equipe', 'Equipe') }}</th>
+                    <th>{{ th_sort('funcao', 'Função') }}</th>
+                    <th>{{ th_sort('admissao', 'Admissão') }}</th>
                     <th>Perfil</th>
                     <th class="text-center">Status</th>
                     <th></th>
@@ -81,7 +111,7 @@
                     </td>
                 </tr>
                 {% else %}
-                <tr>
+                <tr data-empty="1">
                     <td colspan="8" class="text-center text-muted py-4">
                         {% if busca %}
                             Nenhum resultado para "<strong>{{ busca }}</strong>".
@@ -94,5 +124,10 @@
             </tbody>
         </table>
     </div>
+    <div id="colaboradores-pg" class="px-3 py-2 border-top"></div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/table-paginate.js') }}"></script>
 {% endblock %}

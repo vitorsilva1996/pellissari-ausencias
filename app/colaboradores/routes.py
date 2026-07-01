@@ -56,15 +56,52 @@ def _funcoes_disponiveis():
 
 # ── Listagem ──────────────────────────────────────────────────────────────────
 
+_SORT_COLUNAS_VALIDAS = {
+    'nome':     Colaborador.nome,
+    'equipe':   Equipe.nome,
+    'funcao':   Colaborador.funcao,
+    'admissao': Colaborador.data_admissao,
+}
+
+
 @colaboradores.route('/')
 @require_permission('colaboradores.ver')
 def index():
-    mostrar_inativos = request.args.get('inativos', '0') == '1'
     busca = request.args.get('q', '').strip()
 
+    status_filtro = request.args.get('status', 'ativo')
+    if status_filtro not in ('ativo', 'inativo', 'todos'):
+        status_filtro = 'ativo'
+
+    equipe_filtro = request.args.get('equipe', 'todas')
+    perfil_filtro = request.args.get('perfil', 'todos')
+
+    sort_col = request.args.get('sort', 'nome')
+    if sort_col not in _SORT_COLUNAS_VALIDAS:
+        sort_col = 'nome'
+    sort_dir = request.args.get('dir', 'asc')
+    if sort_dir not in ('asc', 'desc'):
+        sort_dir = 'asc'
+
     q = Colaborador.query.join(Equipe)
-    if not mostrar_inativos:
+
+    if status_filtro == 'ativo':
         q = q.filter(Colaborador.ativo == 1)
+    elif status_filtro == 'inativo':
+        q = q.filter(Colaborador.ativo == 0)
+
+    if equipe_filtro != 'todas':
+        try:
+            q = q.filter(Colaborador.equipe_id == int(equipe_filtro))
+        except ValueError:
+            pass
+
+    if perfil_filtro != 'todos':
+        try:
+            q = q.filter(Colaborador.perfil_id == int(perfil_filtro))
+        except ValueError:
+            pass
+
     if busca:
         termo = f'%{busca}%'
         q = q.filter(
@@ -76,11 +113,21 @@ def index():
             )
         )
 
-    lista = q.order_by(Colaborador.nome).all()
+    coluna_ordenacao = _SORT_COLUNAS_VALIDAS[sort_col]
+    q = q.order_by(coluna_ordenacao.desc() if sort_dir == 'desc' else coluna_ordenacao.asc())
+
+    lista = q.all()
+
     return render_template('colaboradores/index.html',
                            lista=lista,
-                           mostrar_inativos=mostrar_inativos,
-                           busca=busca)
+                           busca=busca,
+                           status_filtro=status_filtro,
+                           equipe_filtro=equipe_filtro,
+                           perfil_filtro=perfil_filtro,
+                           sort_col=sort_col,
+                           sort_dir=sort_dir,
+                           equipes=Equipe.query.order_by(Equipe.nome).all(),
+                           perfis=Perfil.query.order_by(Perfil.nome).all())
 
 
 # ── Cadastro ──────────────────────────────────────────────────────────────────
