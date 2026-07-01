@@ -112,6 +112,7 @@ class Colaborador(UserMixin, db.Model):
     )
     perfil_id    = db.Column(db.Integer, db.ForeignKey('perfis.id'), nullable=True)
     ad_login     = db.Column(db.String(150), nullable=True)
+    foto_path    = db.Column(db.String(255), nullable=True)
     ativo        = db.Column(db.SmallInteger, nullable=False, default=1)
     criado_em    = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 

@@ -7,6 +7,7 @@ from flask import render_template, redirect, url_for, request, flash, abort
 from flask_login import login_required, current_user
 
 from app.colaboradores import colaboradores
+from app.colaboradores.fotos import extensao_valida, remover_foto, salvar_foto
 from app.models import Colaborador, Equipe, PeriodoAquisitivo, Ferias, DayOff, Perfil, Funcao
 from app import db
 from app.auth.permissions import has_permission, require_permission, get_user_equipes
@@ -147,6 +148,7 @@ def novo():
         admissao_s = request.form.get('data_admissao', '').strip()
         perfil_id = request.form.get('perfil_id', type=int)
         funcao_id = request.form.get('funcao_id', type=int)
+        foto_file = request.files.get('foto')
 
         erros = []
         if not nome:
@@ -159,6 +161,8 @@ def novo():
             erros.append('Equipe é obrigatória.')
         if not admissao_s:
             erros.append('Data de admissão é obrigatória.')
+        if foto_file and foto_file.filename and not extensao_valida(foto_file.filename):
+            erros.append('Foto deve ser JPG, PNG ou WEBP.')
 
         funcao_obj = None
         funcao_str = ''
@@ -214,6 +218,11 @@ def novo():
             c.equipes_gerenciadas = Equipe.query.filter(Equipe.id.in_(equipe_ids)).all()
 
         db.session.add(c)
+        db.session.flush()  # obtém c.id, necessário para nomear o arquivo da foto
+
+        if foto_file and foto_file.filename:
+            c.foto_path = salvar_foto(c.id, foto_file)
+
         db.session.commit()
 
         flash(
@@ -281,6 +290,7 @@ def editar(id):
         admissao_s = request.form.get('data_admissao', '').strip()
         perfil_id = request.form.get('perfil_id', type=int)
         funcao_id = request.form.get('funcao_id', type=int)
+        foto_file = request.files.get('foto')
 
         erros = []
         if not nome:
@@ -296,6 +306,8 @@ def editar(id):
                 erros.append('E-mail já usado por outro colaborador.')
         if not equipe_id:
             erros.append('Equipe é obrigatória.')
+        if foto_file and foto_file.filename and not extensao_valida(foto_file.filename):
+            erros.append('Foto deve ser JPG, PNG ou WEBP.')
 
         funcao_obj = None
         if funcao_id:
@@ -343,6 +355,11 @@ def editar(id):
         colab.equipes_gerenciadas = (
             Equipe.query.filter(Equipe.id.in_(equipe_ids)).all() if equipe_ids else []
         )
+
+        if foto_file and foto_file.filename:
+            foto_antiga = colab.foto_path
+            colab.foto_path = salvar_foto(colab.id, foto_file)
+            remover_foto(foto_antiga)
 
         db.session.commit()
         flash('Dados atualizados com sucesso.', 'success')

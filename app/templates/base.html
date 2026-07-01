@@ -1,3 +1,4 @@
+{% from '_avatar.html' import avatar %}
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -16,14 +17,6 @@
         font-size: .65rem; line-height: 18px;
         text-align: center; border-radius: 9px; padding: 0 4px;
         background: #C0392B !important;
-      }
-      /* Avatar com iniciais */
-      .nav-avatar {
-        width: 32px; height: 32px; border-radius: 50%;
-        background: #C0392B; color: #fff;
-        font-size: .68rem; font-weight: 700;
-        display: inline-flex; align-items: center; justify-content: center;
-        flex-shrink: 0; letter-spacing: .03em; user-select: none;
       }
       .nav-avatar-btn { background: transparent !important; }
       .nav-avatar-btn::after { border-top-color: rgba(255,255,255,.7) !important; }
@@ -73,10 +66,24 @@
              href="{{ url_for('dayoff.index') }}">Day Off</a>
         </li>
 
+        {% set pode_ver_timeline = has_permission(current_user, 'painel.ver') or has_permission(current_user, 'ferias.aprovar_1') or has_permission(current_user, 'ferias.aprovar_2') %}
+        {% if pode_ver_timeline %}
+        <li class="nav-item dropdown">
+          <a class="nav-link px-3 dropdown-toggle {% if request.blueprint == 'calendario' %}active{% endif %}"
+             href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            Calendário
+          </a>
+          <ul class="dropdown-menu shadow-sm border-0">
+            <li><a class="dropdown-item {% if request.endpoint in ('calendario.index', 'calendario.mes_especifico') %}active{% endif %}" href="{{ url_for('calendario.index') }}">Mensal</a></li>
+            <li><a class="dropdown-item {% if request.endpoint in ('calendario.timeline', 'calendario.timeline_ano') %}active{% endif %}" href="{{ url_for('calendario.timeline') }}">Timeline</a></li>
+          </ul>
+        </li>
+        {% else %}
         <li class="nav-item">
           <a class="nav-link px-3 {% if request.blueprint == 'calendario' %}active{% endif %}"
              href="{{ url_for('calendario.index') }}">Calendário</a>
         </li>
+        {% endif %}
 
         {% if has_permission(current_user, 'colaboradores.ver') %}
         <li class="nav-item">
@@ -128,7 +135,7 @@
           {% set _partes = current_user.nome.split() %}
           <button class="nav-avatar-btn btn border-0 p-0 dropdown-toggle d-flex align-items-center gap-2"
                   type="button" data-bs-toggle="dropdown" aria-expanded="false">
-            <div class="nav-avatar">{{ _partes[0][0] | upper }}{{ _partes[-1][0] | upper if _partes | length > 1 else '' }}</div>
+            {{ avatar(current_user, 32) }}
             <span class="d-none d-sm-inline text-white" style="font-size:.875rem">
               {{ _partes[0] }}
             </span>

@@ -1,0 +1,240 @@
+{% extends 'base.html' %}
+{% from '_avatar.html' import avatar %}
+
+{% block title %}Timeline de Ausências — {{ ano }}{% endblock %}
+
+{% block content %}
+<style>
+  .tl-scroll {
+    overflow: auto;
+    max-height: 75vh;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+  }
+  .tl-table {
+    border-collapse: collapse;
+    font-size: .75rem;
+    background: #fff;
+  }
+  .tl-table th, .tl-table td {
+    box-sizing: border-box;
+  }
+  .tl-name-header, .tl-name-cell {
+    position: sticky;
+    left: 0;
+    background: #f8f9fa;
+    padding: 6px 12px;
+    border-right: 2px solid #dee2e6;
+    border-bottom: 1px solid #dee2e6;
+    white-space: nowrap;
+    min-width: 160px;
+  }
+  .tl-name-header {
+    z-index: 4;
+    top: 0;
+    vertical-align: middle;
+  }
+  .tl-name-cell {
+    background: #fff;
+    font-weight: 600;
+    color: #495057;
+    z-index: 1;
+  }
+  .tl-month-header {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    height: 26px;
+    text-align: center;
+    padding: 4px 2px 2px;
+    font-size: .72rem;
+    font-weight: 700;
+    color: #495057;
+    background: #eef0f2;
+    border-bottom: 1px solid #dee2e6;
+    border-right: 2px solid #dee2e6;
+  }
+  .tl-month-header.atual {
+    background: #cfe2ff;
+    color: #084298;
+  }
+  .tl-day-header {
+    position: sticky;
+    top: 26px;
+    z-index: 3;
+    width: 24px;
+    min-width: 24px;
+    height: 26px;
+    text-align: center;
+    padding: 4px 2px;
+    font-size: .65rem;
+    font-weight: 600;
+    color: #6c757d;
+    background: #fff;
+    border-bottom: 1px solid #dee2e6;
+    border-right: 1px solid #f1f3f5;
+  }
+  .tl-day-header.fds {
+    background: #f8f9fa;
+  }
+  .tl-day-header.mes-atual {
+    background: #eef4ff;
+  }
+  .tl-day-header.hoje {
+    background: #0d6efd;
+    color: #fff;
+    border-radius: 4px;
+  }
+  .tl-day-header.ultimo-do-mes {
+    border-right: 2px solid #dee2e6;
+  }
+  .tl-cell {
+    width: 24px;
+    min-width: 24px;
+    height: 32px;
+    border-bottom: 1px solid #f1f3f5;
+    border-right: 1px solid #f8f9fa;
+    position: relative;
+  }
+  .tl-cell.fds {
+    background: #fbfbfc;
+  }
+  .tl-cell.mes-atual {
+    background: #f5f9ff;
+  }
+  .tl-cell.ultimo-do-mes {
+    border-right: 2px solid #dee2e6;
+  }
+  .tl-bar {
+    position: absolute;
+    top: 5px;
+    bottom: 5px;
+    left: 0;
+    right: 0;
+  }
+  .tl-bar.inicio {
+    left: 3px;
+    border-top-left-radius: 6px;
+    border-bottom-left-radius: 6px;
+  }
+  .tl-bar.fim {
+    right: 3px;
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
+  }
+  .tl-bar-ferias {
+    background: #9ec5fe;
+  }
+  .tl-bar-dayoff {
+    background: #a3cfbb;
+  }
+</style>
+
+{# ── Cabeçalho / Navegação ── #}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <a href="{{ url_for('calendario.timeline_ano', ano=prev_ano, equipe=equipe_filtro) }}"
+       class="btn btn-outline-secondary btn-sm">&#8592; {{ prev_ano }}</a>
+
+    <h4 class="mb-0 fw-bold">Timeline de Ausências — {{ ano }}</h4>
+
+    <a href="{{ url_for('calendario.timeline_ano', ano=next_ano, equipe=equipe_filtro) }}"
+       class="btn btn-outline-secondary btn-sm">{{ next_ano }} &#8594;</a>
+</div>
+
+{# ── Filtro por equipe ── #}
+{% if equipes_disponiveis|length > 1 %}
+<div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+    <span class="text-muted small">Equipe:</span>
+    <a href="{{ url_for('calendario.timeline_ano', ano=ano, equipe='todas') }}"
+       class="btn btn-sm {% if equipe_filtro == 'todas' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+        Todas
+    </a>
+    {% for eq in equipes_disponiveis %}
+    <a href="{{ url_for('calendario.timeline_ano', ano=ano, equipe=eq.id) }}"
+       class="btn btn-sm {% if equipe_filtro == eq.id|string %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+        {{ eq.nome }}
+    </a>
+    {% endfor %}
+</div>
+{% endif %}
+
+{# ── Legenda ── #}
+<div class="d-flex gap-3 mb-3 align-items-center flex-wrap">
+    <span class="d-inline-flex align-items-center gap-1">
+        <span style="display:inline-block;width:14px;height:14px;background:#9ec5fe;border-radius:3px"></span>
+        <span class="small">Férias</span>
+    </span>
+    <span class="d-inline-flex align-items-center gap-1">
+        <span style="display:inline-block;width:14px;height:14px;background:#a3cfbb;border-radius:3px"></span>
+        <span class="small">Day Off</span>
+    </span>
+    <span class="d-inline-flex align-items-center gap-1">
+        <span style="display:inline-block;width:14px;height:14px;background:#cfe2ff;border-radius:3px"></span>
+        <span class="small text-muted">Mês atual</span>
+    </span>
+</div>
+
+{# ── Tabela timeline ── #}
+{% if colaboradores %}
+<div class="tl-scroll" id="tl-scroll">
+    <table class="tl-table mb-0">
+        <thead>
+            <tr>
+                <th class="tl-name-header" rowspan="2">Colaborador</th>
+                {% for m in meses_info %}
+                <th class="tl-month-header {% if m.atual %}atual{% endif %}" colspan="{{ m.colspan }}">{{ m.nome }}</th>
+                {% endfor %}
+            </tr>
+            <tr>
+                {% for d in dias %}
+                <th class="tl-day-header
+                           {% if d.fds %}fds{% endif %}
+                           {% if d.mes_atual %}mes-atual{% endif %}
+                           {% if d.ultimo_do_mes %}ultimo-do-mes{% endif %}
+                           {% if d.hoje %}hoje{% endif %}"
+                    {% if d.hoje %}id="tl-hoje-col"{% endif %}>
+                    {{ d.numero }}
+                </th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in colaboradores %}
+            {% set _partes = c.nome.split() %}
+            <tr>
+                <td class="tl-name-cell" title="{{ c.nome }}">
+                    <div class="d-flex align-items-center gap-2">
+                        {{ avatar(c, 24) }}
+                        <span>{{ _partes[0] }}{% if _partes|length > 1 %} {{ _partes[-1] }}{% endif %}</span>
+                    </div>
+                </td>
+                {% for d in dias %}
+                {% set info = timeline.get(c.id, {}).get(d.ordinal) %}
+                <td class="tl-cell
+                           {% if d.fds %}fds{% endif %}
+                           {% if d.mes_atual %}mes-atual{% endif %}
+                           {% if d.ultimo_do_mes %}ultimo-do-mes{% endif %}">
+                    {% if info %}
+                    <span class="tl-bar tl-bar-{{ info.tipo }} {% if info.inicio %}inicio{% endif %} {% if info.fim %}fim{% endif %}"
+                          title="{{ c.nome }} — {{ 'Férias' if info.tipo == 'ferias' else 'Day Off' }}"></span>
+                    {% endif %}
+                </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<script>
+  (function () {
+    var alvo = document.getElementById('tl-hoje-col');
+    if (alvo) {
+      alvo.scrollIntoView({ inline: 'center', block: 'nearest' });
+    }
+  })();
+</script>
+{% else %}
+<p class="text-muted mt-4 text-center small">Nenhum colaborador para exibir.</p>
+{% endif %}
+
+{% endblock %}

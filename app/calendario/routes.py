@@ -7,11 +7,15 @@ from flask_login import login_required, current_user
 
 from app.calendario import calendario
 from app.models import Ferias, DayOff, Colaborador, Equipe
-from app.auth.permissions import has_permission, get_user_equipes
+from app.auth.permissions import has_permission, get_user_equipes, require_any_permission
 
 MESES_PT = [
     '', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+]
+MESES_ABREV_PT = [
+    '', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+    'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez',
 ]
 DIAS_SEMANA = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
 
@@ -102,6 +106,159 @@ def _construir_ausencias(ano, mes, colab_ids):
     return dict(ausencias), conflito_por_dia
 
 
+def _construir_timeline_ano(ano, colab_ids):
+    """
+    Retorna (timeline, intervalos) para a visão de timeline anual.
+
+    timeline:   {colaborador_id: {dia_do_ano: {'tipo', 'inicio', 'fim'}}}
+                dia_do_ano é o ordinal 1..365/366 dentro do ano exibido.
+                'inicio'/'fim' marcam a primeira/última célula de um trecho
+                contínuo de ausência, usados para arredondar a barra visual.
+    intervalos: {colaborador_id: [(data_inicio, data_fim_exclusiva), ...]}
+                usado para ordenar colaboradores pela próxima ausência.
+    """
+    primeiro_dia = date(ano, 1, 1)
+    ultimo_dia = date(ano, 12, 31)
+
+    timeline = defaultdict(dict)
+    intervalos = defaultdict(list)
+
+    ferias_ano = (
+        Ferias.query
+        .filter(
+            Ferias.colaborador_id.in_(colab_ids),
+            Ferias.status == 'aprovada',
+            Ferias.data_inicio <= ultimo_dia,
+            Ferias.data_retorno > primeiro_dia,
+        )
+        .all()
+    )
+
+    for f in ferias_ano:
+        inicio = max(f.data_inicio, primeiro_dia)
+        fim = min(f.data_retorno, ultimo_dia + timedelta(days=1))
+        intervalos[f.colaborador_id].append((inicio, fim))
+        dia = inicio
+        while dia < fim:
+            ordinal = (dia - primeiro_dia).days + 1
+            timeline[f.colaborador_id][ordinal] = {
+                'tipo': 'ferias',
+                'inicio': dia == inicio,
+                'fim': dia == fim - timedelta(days=1),
+            }
+            dia += timedelta(days=1)
+
+    dayoffs_ano = (
+        DayOff.query
+        .filter(
+            DayOff.colaborador_id.in_(colab_ids),
+            DayOff.status == 'aprovado',
+            DayOff.data_solicitada >= primeiro_dia,
+            DayOff.data_solicitada <= ultimo_dia,
+        )
+        .all()
+    )
+
+    for d in dayoffs_ano:
+        ordinal = (d.data_solicitada - primeiro_dia).days + 1
+        timeline[d.colaborador_id][ordinal] = {
+            'tipo': 'dayoff',
+            'inicio': True,
+            'fim': True,
+        }
+        intervalos[d.colaborador_id].append(
+            (d.data_solicitada, d.data_solicitada + timedelta(days=1))
+        )
+
+    return dict(timeline), dict(intervalos)
+
+
+def _ordenar_colaboradores_timeline(colaboradores, intervalos, ano):
+    """
+    Ordena pela data de início da próxima ausência (em andamento ou futura,
+    relativa a hoje quando `ano` é o ano corrente). Colaboradores sem
+    ausência relevante no ano ficam no final, em ordem alfabética.
+    """
+    hoje = date.today()
+    referencia = hoje if ano == hoje.year else date(ano, 1, 1)
+
+    def chave(c):
+        candidatas = [
+            inicio for inicio, fim in intervalos.get(c.id, [])
+            if fim > referencia
+        ]
+        if candidatas:
+            return (0, min(candidatas), c.nome)
+        return (1, date.max, c.nome)
+
+    return sorted(colaboradores, key=chave)
+
+
+def _render_timeline(ano):
+    hoje = date.today()
+
+    equipes_disponiveis = _equipes_visiveis()
+    equipe_ids_disponiveis = {e.id for e in equipes_disponiveis}
+
+    equipe_filtro = request.args.get('equipe', 'todas')
+    if equipe_filtro != 'todas':
+        try:
+            fid = int(equipe_filtro)
+            equipe_ids_filtradas = {fid} & equipe_ids_disponiveis
+        except ValueError:
+            equipe_ids_filtradas = equipe_ids_disponiveis
+    else:
+        equipe_ids_filtradas = equipe_ids_disponiveis
+
+    if not equipe_ids_filtradas:
+        equipe_ids_filtradas = equipe_ids_disponiveis
+
+    colaboradores_visiveis = _colaboradores_visiveis(equipe_ids_filtradas)
+    colab_ids = [c.id for c in colaboradores_visiveis]
+
+    timeline, intervalos = _construir_timeline_ano(ano, colab_ids)
+    colaboradores = _ordenar_colaboradores_timeline(colaboradores_visiveis, intervalos, ano)
+
+    primeiro_dia_ano = date(ano, 1, 1)
+    dia = primeiro_dia_ano
+    dias = []
+    while dia.year == ano:
+        proximo = dia + timedelta(days=1)
+        dias.append({
+            'ordinal': (dia - primeiro_dia_ano).days + 1,
+            'mes': dia.month,
+            'numero': dia.day,
+            'fds': dia.weekday() >= 5,
+            'hoje': dia == hoje,
+            'mes_atual': dia.month == hoje.month and ano == hoje.year,
+            'ultimo_do_mes': proximo.month != dia.month,
+        })
+        dia = proximo
+
+    meses_info = [
+        {
+            'nome': MESES_ABREV_PT[m],
+            'colspan': sum(1 for d in dias if d['mes'] == m),
+            'atual': (m == hoje.month and ano == hoje.year),
+        }
+        for m in range(1, 13)
+    ]
+
+    return render_template(
+        'calendario/timeline.html',
+        ano=ano,
+        hoje=hoje,
+        dias=dias,
+        meses_info=meses_info,
+        colaboradores=colaboradores,
+        timeline=timeline,
+        equipes_disponiveis=equipes_disponiveis,
+        equipe_filtro=equipe_filtro,
+        prev_ano=ano - 1,
+        next_ano=ano + 1,
+    )
+
+
 def _render(ano, mes):
     hoje = date.today()
 
@@ -175,3 +332,18 @@ def index():
 @login_required
 def mes_especifico(ano, mes):
     return _render(ano, mes)
+
+
+@calendario.route('/timeline')
+@login_required
+@require_any_permission('painel.ver', 'ferias.aprovar_1', 'ferias.aprovar_2')
+def timeline():
+    hoje = date.today()
+    return _render_timeline(hoje.year)
+
+
+@calendario.route('/timeline/<int:ano>')
+@login_required
+@require_any_permission('painel.ver', 'ferias.aprovar_1', 'ferias.aprovar_2')
+def timeline_ano(ano):
+    return _render_timeline(ano)

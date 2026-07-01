@@ -64,8 +64,6 @@ def _pode_aprovar(f):
 
 # ── Listagem ──────────────────────────────────────────────────────────────────
 
-_STATUS_EQUIPE_FILTROS = frozenset({'todos', 'aguardando', 'aprovada', 'reprovada', 'cancelada'})
-
 _SORT_MINHAS = {
     'solicitado_em': Ferias.solicitado_em,
     'inicio':        Ferias.data_inicio,
@@ -81,10 +79,12 @@ _SORT_EQUIPE = {
 }
 
 
-def _solicitacoes_equipe(status_filtro, sort_col, sort_dir):
+def _solicitacoes_equipe(sort_col, sort_dir):
     """Todas as férias visíveis para o aprovador (gestor: equipes gerenciadas;
-    RH/Administrador: todas), com o status filtrado, ordenadas, e a
-    permissão de agir por item."""
+    RH/Administrador: todas), ordenadas, com a permissão de agir por item.
+
+    O filtro por status/equipe/busca é aplicado no cliente (JS), por isso
+    a consulta traz todos os status."""
     pode_aprovar_2 = has_permission(current_user, 'ferias.aprovar_2')
     pode_aprovar_1 = has_permission(current_user, 'ferias.aprovar_1')
     if not (pode_aprovar_1 or pode_aprovar_2):
@@ -94,11 +94,6 @@ def _solicitacoes_equipe(status_filtro, sort_col, sort_dir):
     if not pode_aprovar_2:
         equipe_ids = get_user_equipes(current_user)
         q = q.filter(Colaborador.equipe_id.in_(equipe_ids))
-
-    if status_filtro == 'aguardando':
-        q = q.filter(Ferias.status.in_(['aguardando_gestor', 'aguardando_rh']))
-    elif status_filtro in ('aprovada', 'reprovada', 'cancelada'):
-        q = q.filter(Ferias.status == status_filtro)
 
     coluna = _SORT_EQUIPE[sort_col]
     q = q.order_by(coluna.desc() if sort_dir == 'desc' else coluna.asc())
@@ -143,11 +138,11 @@ def index():
             .all()
         )
 
-    status_equipe_filtro = request.args.get('status_equipe', 'todos')
-    if status_equipe_filtro not in _STATUS_EQUIPE_FILTROS:
-        status_equipe_filtro = 'todos'
     sort_equipe_col, sort_equipe_dir = ler_ordenacao('equipe', _SORT_EQUIPE, 'solicitado_em')
-    solicitacoes_equipe = _solicitacoes_equipe(status_equipe_filtro, sort_equipe_col, sort_equipe_dir)
+    solicitacoes_equipe = _solicitacoes_equipe(sort_equipe_col, sort_equipe_dir)
+    equipes_disponiveis_equipe = sorted({
+        item['ferias'].colaborador.equipe.nome for item in (solicitacoes_equipe or [])
+    })
 
     hoje = date.today()
     periodos = (
@@ -175,7 +170,7 @@ def index():
                            pendentes=pendentes,
                            periodos_info=periodos_info,
                            solicitacoes_equipe=solicitacoes_equipe,
-                           status_equipe_filtro=status_equipe_filtro)
+                           equipes_disponiveis_equipe=equipes_disponiveis_equipe)
 
 
 # ── Solicitação ───────────────────────────────────────────────────────────────

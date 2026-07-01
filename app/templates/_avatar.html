@@ -1,0 +1,13 @@
+{% macro avatar(colaborador, tamanho=32) %}
+{%- set partes = colaborador.nome.split() -%}
+{%- if colaborador.foto_path -%}
+<img src="{{ url_for('static', filename=colaborador.foto_path) }}" alt="{{ colaborador.nome }}"
+     style="width:{{ tamanho }}px;height:{{ tamanho }}px;border-radius:50%;object-fit:cover;flex-shrink:0;">
+{%- else -%}
+<div style="width:{{ tamanho }}px;height:{{ tamanho }}px;border-radius:50%;background:#C0392B;color:#fff;
+            font-size:{{ (tamanho * 0.42) | round(1) }}px;font-weight:700;display:inline-flex;
+            align-items:center;justify-content:center;flex-shrink:0;letter-spacing:.03em;user-select:none;">
+    {{- partes[0][0] | upper }}{{ partes[-1][0] | upper if partes | length > 1 else '' -}}
+</div>
+{%- endif -%}
+{% endmacro %}

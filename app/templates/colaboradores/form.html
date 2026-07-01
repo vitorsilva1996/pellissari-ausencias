@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% from '_avatar.html' import avatar %}
 
 {% block title %}{% if colab %}Editar — {{ colab.nome }}{% else %}Novo Colaborador{% endif %}{% endblock %}
 
@@ -36,7 +37,27 @@
 
         <form method="POST"
               action="{{ url_for('colaboradores.editar', id=colab.id) if colab else url_for('colaboradores.novo') }}"
+              enctype="multipart/form-data"
               novalidate>
+
+            {# Foto de perfil #}
+            <div class="mb-4 d-flex align-items-center gap-3">
+                <div id="foto-preview-wrap">
+                    {% if colab %}
+                    {{ avatar(colab, 72) }}
+                    {% else %}
+                    <div style="width:72px;height:72px;border-radius:50%;background:#C0392B;color:#fff;
+                                font-size:28px;font-weight:700;display:inline-flex;align-items:center;
+                                justify-content:center;flex-shrink:0;user-select:none;">?</div>
+                    {% endif %}
+                </div>
+                <div>
+                    <label class="form-label fw-semibold d-block" for="foto">Foto de perfil</label>
+                    <input type="file" class="form-control form-control-sm" id="foto" name="foto"
+                           accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
+                    <div class="form-text">JPG, PNG ou WEBP — opcional, redimensionada para 300x300px.</div>
+                </div>
+            </div>
 
             {# Nome #}
             <div class="mb-3">
@@ -199,6 +220,20 @@
         selectPerfil.addEventListener('change', atualizar);
         atualizar();
     }
+})();
+
+(function () {
+    var inputFoto = document.getElementById('foto');
+    var wrap = document.getElementById('foto-preview-wrap');
+    if (!inputFoto || !wrap) return;
+
+    inputFoto.addEventListener('change', function () {
+        var arquivo = inputFoto.files && inputFoto.files[0];
+        if (!arquivo) return;
+        var url = URL.createObjectURL(arquivo);
+        wrap.innerHTML = '<img src="' + url + '" alt="Preview" ' +
+            'style="width:72px;height:72px;border-radius:50%;object-fit:cover;flex-shrink:0;">';
+    });
 })();
 </script>
 {% endblock %}

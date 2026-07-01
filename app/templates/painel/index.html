@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% from '_avatar.html' import avatar %}
 {% block title %}Painel Gerencial{% endblock %}
 
 {% block content %}
@@ -249,9 +250,12 @@
       {% else %}
       {% for a in alertas.vencidos[:5] %}
       <div class="alert-row">
-        <div>
-          <span class="fw-semibold">{{ a.colaborador.nome.split()[0] }} {{ a.colaborador.nome.split()[-1] }}</span>
-          <span class="text-muted d-block" style="font-size:11px">{{ a.colaborador.equipe.nome }}</span>
+        <div class="d-flex align-items-center gap-2">
+          {{ avatar(a.colaborador, 32) }}
+          <div>
+            <span class="fw-semibold">{{ a.colaborador.nome.split()[0] }} {{ a.colaborador.nome.split()[-1] }}</span>
+            <span class="text-muted d-block" style="font-size:11px">{{ a.colaborador.equipe.nome }}</span>
+          </div>
         </div>
         <span class="alert-days days-danger">{{ a.dias_limite | abs }}d atraso</span>
       </div>
@@ -270,9 +274,12 @@
       {% else %}
       {% for a in atencao_lista[:5] %}
       <div class="alert-row">
-        <div>
-          <span class="fw-semibold">{{ a.colaborador.nome.split()[0] }} {{ a.colaborador.nome.split()[-1] }}</span>
-          <span class="text-muted d-block" style="font-size:11px">{{ a.colaborador.equipe.nome }}</span>
+        <div class="d-flex align-items-center gap-2">
+          {{ avatar(a.colaborador, 32) }}
+          <div>
+            <span class="fw-semibold">{{ a.colaborador.nome.split()[0] }} {{ a.colaborador.nome.split()[-1] }}</span>
+            <span class="text-muted d-block" style="font-size:11px">{{ a.colaborador.equipe.nome }}</span>
+          </div>
         </div>
         <span class="alert-days days-warn">{{ a.dias_limite }}d restantes</span>
       </div>
@@ -315,6 +322,7 @@
         <span class="pend-badge {{ item.tipo }}">
           {% if item.tipo == 'ferias' %}Férias{% else %}Day off{% endif %}
         </span>
+        {{ avatar(item.colaborador, 32) }}
         <div class="flex-grow-1 min-w-0">
           <div class="fw-semibold" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
             {{ item.colaborador.nome.split()[0] }} {{ item.colaborador.nome.split()[-1] }}

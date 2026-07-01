@@ -10,6 +10,12 @@
  * recebem o atributo data-empty. Linhas que pertencem ao mesmo "item" (ex:
  * uma linha de dados + a linha de comentário associada) recebem o mesmo
  * valor em data-item, para que sejam mostradas/ocultadas juntas.
+ *
+ * Filtro externo: depois de inicializada, a tabela ganha o método
+ * `table.tabelaFiltro(fn)`, onde `fn(primeiraLinhaDoGrupo)` retorna
+ * true/false. Passar `null` remove o filtro. Usado por telas com busca/
+ * filtros client-side (ex: ferias/index.html) para restringir os grupos
+ * paginados sem precisar duplicar a lógica de paginação.
  */
 (function () {
   var TAMANHOS = [10, 20, 50, 100];
@@ -43,13 +49,12 @@
     var tbody = table.tBodies[0];
     if (!tbody) return;
 
-    var linhas = Array.prototype.filter.call(tbody.rows, function (tr) {
+    var todasLinhas = Array.prototype.filter.call(tbody.rows, function (tr) {
       return !tr.hasAttribute('data-empty');
     });
-    if (linhas.length === 0) return;
+    if (todasLinhas.length === 0) return;
 
-    var grupos = agrupar(linhas);
-    var total = grupos.length;
+    var todosGrupos = agrupar(todasLinhas);
 
     var controlesId = table.getAttribute('data-paginate');
     var controles = controlesId ? document.getElementById(controlesId) : null;
@@ -58,13 +63,11 @@
     var padrao = parseInt(table.getAttribute('data-page-size'), 10);
     if (TAMANHOS.indexOf(padrao) === -1) padrao = TAMANHOS[0];
 
-    if (total <= padrao) {
-      controles.innerHTML = '';
-      return;
-    }
-
     var pagina = 1;
     var porPagina = padrao;
+    var filtroAtivo = null;
+    var grupos = todosGrupos;
+    var total = grupos.length;
 
     function totalPaginas() {
       return Math.max(1, Math.ceil(total / porPagina));
@@ -81,7 +84,11 @@
           tr.style.display = visivel ? '' : 'none';
         });
       });
-      desenhar(tp);
+      if (total <= porPagina) {
+        controles.innerHTML = '';
+      } else {
+        desenhar(tp);
+      }
     }
 
     function irPara(p) {
@@ -149,6 +156,21 @@
       wrap.appendChild(direita);
       controles.appendChild(wrap);
     }
+
+    table.tabelaFiltro = function (fn) {
+      filtroAtivo = fn;
+      todosGrupos.forEach(function (g) {
+        var passa = !filtroAtivo || filtroAtivo(g[0]);
+        if (!passa) {
+          g.forEach(function (tr) { tr.style.display = 'none'; });
+        }
+      });
+      grupos = filtroAtivo ? todosGrupos.filter(function (g) { return filtroAtivo(g[0]); }) : todosGrupos;
+      total = grupos.length;
+      pagina = 1;
+      aplicar();
+      return total;
+    };
 
     aplicar();
   }

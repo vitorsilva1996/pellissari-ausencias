@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% from '_avatar.html' import avatar %}
 
 {% block title %}Colaboradores{% endblock %}
 
@@ -74,6 +75,7 @@
         <table class="table table-hover mb-0 align-middle" data-paginate="colaboradores-pg" data-page-size="10">
             <thead class="table-light">
                 <tr>
+                    <th></th>
                     <th>{{ th_sort('nome', 'Nome') }}</th>
                     <th>E-mail</th>
                     <th>{{ th_sort('equipe', 'Equipe') }}</th>
@@ -87,6 +89,7 @@
             <tbody>
                 {% for c in lista %}
                 <tr class="{% if not c.ativo %}table-secondary text-muted{% endif %}">
+                    <td>{{ avatar(c, 32) }}</td>
                     <td class="fw-semibold">{{ c.nome | highlight(busca) }}</td>
                     <td class="small">{{ c.email }}</td>
                     <td class="small">{{ c.equipe.nome }}</td>
@@ -112,7 +115,7 @@
                 </tr>
                 {% else %}
                 <tr data-empty="1">
-                    <td colspan="8" class="text-center text-muted py-4">
+                    <td colspan="9" class="text-center text-muted py-4">
                         {% if busca %}
                             Nenhum resultado para "<strong>{{ busca }}</strong>".
                         {% else %}

@@ -212,18 +212,29 @@
 {# ── Solicitações da equipe (visão gerencial) ── #}
 {% if solicitacoes_equipe is not none %}
 <div class="card border-0 shadow-sm mb-4">
-    <div class="card-header bg-white border-0 pt-3 pb-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div class="card-header bg-white border-0 pt-3 pb-2">
         <h6 class="mb-0 fw-semibold">Solicitações da equipe</h6>
-        <form method="GET" action="{{ url_for('ferias.index') }}" class="mb-0">
-            <select name="status_equipe" class="form-select form-select-sm" style="min-width:170px" onchange="this.form.submit()">
-                <option value="todos" {% if status_equipe_filtro == 'todos' %}selected{% endif %}>Todos os status</option>
-                <option value="aguardando" {% if status_equipe_filtro == 'aguardando' %}selected{% endif %}>Aguardando</option>
-                <option value="aprovada" {% if status_equipe_filtro == 'aprovada' %}selected{% endif %}>Aprovada</option>
-                <option value="reprovada" {% if status_equipe_filtro == 'reprovada' %}selected{% endif %}>Reprovada</option>
-                <option value="cancelada" {% if status_equipe_filtro == 'cancelada' %}selected{% endif %}>Cancelada</option>
-            </select>
-        </form>
     </div>
+
+    {# Barra de filtros — client-side, sem reload #}
+    <div class="px-3 pt-2 pb-3 d-flex align-items-center gap-2 flex-wrap">
+        <input type="text" id="fe-filtro-busca" class="form-control form-control-sm"
+               style="max-width:220px" placeholder="Buscar colaborador...">
+        <select id="fe-filtro-equipe" class="form-select form-select-sm" style="max-width:180px">
+            <option value="todas">Todas as equipes</option>
+            {% for nome_eq in equipes_disponiveis_equipe %}
+            <option value="{{ nome_eq }}">{{ nome_eq }}</option>
+            {% endfor %}
+        </select>
+        <select id="fe-filtro-status" class="form-select form-select-sm" style="max-width:170px">
+            <option value="todos">Todos os status</option>
+            <option value="aguardando">Aguardando</option>
+            <option value="aprovada">Aprovada</option>
+            <option value="reprovada">Reprovada</option>
+            <option value="cancelada">Cancelada</option>
+        </select>
+    </div>
+
     <div class="table-responsive">
         <table class="table table-hover mb-0 align-middle" data-paginate="ferias-equipe-pg">
             <thead class="table-light">
@@ -240,7 +251,9 @@
             <tbody>
                 {% for item in solicitacoes_equipe %}
                 {% set f = item.ferias %}
-                <tr>
+                <tr data-nome="{{ f.colaborador.nome | lower }}"
+                    data-equipe="{{ f.colaborador.equipe.nome }}"
+                    data-status="{{ 'aguardando' if f.status in ('aguardando_gestor', 'aguardando_rh') else f.status }}">
                     <td>{{ f.colaborador.nome }}</td>
                     <td class="text-muted small">{{ f.colaborador.equipe.nome }}</td>
                     <td>{{ f.data_inicio.strftime('%d/%m/%Y') }}</td>
@@ -272,6 +285,9 @@
                 {% endfor %}
             </tbody>
         </table>
+        <p id="fe-filtro-vazio" class="text-center text-muted py-4 mb-0" style="display:none">
+            Nenhuma solicitação encontrada para os filtros aplicados.
+        </p>
     </div>
     <div id="ferias-equipe-pg" class="px-3 py-2 border-top"></div>
 </div>
@@ -280,4 +296,30 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/table-paginate.js') }}"></script>
+<script>
+(function () {
+    var tabela = document.querySelector('table[data-paginate="ferias-equipe-pg"]');
+    var busca = document.getElementById('fe-filtro-busca');
+    var equipe = document.getElementById('fe-filtro-equipe');
+    var status = document.getElementById('fe-filtro-status');
+    var vazio = document.getElementById('fe-filtro-vazio');
+    if (!tabela || !busca || !equipe || !status) return;
+
+    function aplicar() {
+        if (typeof tabela.tabelaFiltro !== 'function') return;
+        var termo = busca.value.trim().toLowerCase();
+        var total = tabela.tabelaFiltro(function (tr) {
+            if (termo && tr.dataset.nome.indexOf(termo) === -1) return false;
+            if (equipe.value !== 'todas' && tr.dataset.equipe !== equipe.value) return false;
+            if (status.value !== 'todos' && tr.dataset.status !== status.value) return false;
+            return true;
+        });
+        if (vazio) vazio.style.display = total === 0 ? '' : 'none';
+    }
+
+    busca.addEventListener('input', aplicar);
+    equipe.addEventListener('change', aplicar);
+    status.addEventListener('change', aplicar);
+})();
+</script>
 {% endblock %}
